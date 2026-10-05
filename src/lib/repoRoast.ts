@@ -60,6 +60,12 @@ interface TreeEntry {
   size?: number;
 }
 
+// Source files worth roasting: a supported language, and not vendored,
+// built, minified or generated (those would be roasted for someone else's sins).
+export function isRoastable(path: string): boolean {
+  return langFromPath(path) !== null && !IGNORED_DIR.test(path) && !IGNORED_FILE.test(path);
+}
+
 export function pickFiles(tree: TreeEntry[], path?: string, max = MAX_FILES): TreeEntry[] {
   const prefix = path ? `${path.replace(/\/$/, '')}/` : '';
   return tree
@@ -67,9 +73,7 @@ export function pickFiles(tree: TreeEntry[], path?: string, max = MAX_FILES): Tr
       (e) =>
         e.type === 'blob' &&
         e.path.startsWith(prefix) &&
-        langFromPath(e.path) !== null &&
-        !IGNORED_DIR.test(e.path) &&
-        !IGNORED_FILE.test(e.path) &&
+        isRoastable(e.path) &&
         (e.size ?? 0) > 0 &&
         (e.size ?? 0) <= MAX_FILE_BYTES,
     )

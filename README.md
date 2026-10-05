@@ -19,6 +19,36 @@ Runs 100% in your browser. No signup, no server, and your code never leaves your
 - Languages: JavaScript, TypeScript, Python, Go, Rust, Java/Kotlin (auto-detected).
 - Installable PWA, local roast history.
 
+## CodeRoast for pull requests
+
+Get every PR roasted in a comment that updates itself, with a crime-scene table, receipts that link to the exact lines (🆕 marks lines the PR touched), fixes, and a shareable roast card.
+
+```yaml
+# .github/workflows/coderoast.yml
+name: CodeRoast
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  roast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: StormDoragon/CodeRoast@main
+        with:
+          intensity: savage   # gentle | savage | unhinged
+          fail-below: 0       # e.g. 4 to fail the check on a "Dumpster Fire"
+```
+
+| Input | Default | |
+|---|---|---|
+| `intensity` | `savage` | `gentle`, `savage` or `unhinged` |
+| `fail-below` | `0` | Fail the check when the Banana Score is below this (0 = never) |
+| `max-files` | `30` | Most-changed supported files to roast |
+| `comment` | `true` | Post/update a PR comment (the roast always lands in the job summary) |
+
+Outputs: `score`, `verdict`. Code is read through the GitHub API inside your own runner, so nothing is sent to CodeRoast. PRs from forks get a read-only token, so for those the roast appears in the job summary instead of a comment.
+
 ## Quick start
 
 ```bash
@@ -57,6 +87,7 @@ code ──► analyzer.ts (rules, metrics, score) ──► roastLite.ts (jokes
 - `src/lib/roastLite.ts`: seeded templates, so a roast is reproducible and "Roast again" re-rolls.
 - `src/lib/share.ts`: share payloads are base64url JSON, validated on read. Links look like `/r/<payload>`.
 - `api/share.ts` (edge) + `api/og.ts` (Node.js; the edge runtime can't compile `@vercel/og`'s WebAssembly outside Next.js): `/r/<payload>` returns preview tags for crawlers and redirects visitors to `/#r=<payload>`. `/api/og?d=<payload>` renders the per-roast preview image. Both are stateless, so there's still no database. Relative imports in `api/` need explicit `.js` extensions, because Vercel runs them as native ESM.
+- `action/`: the GitHub Action. `npm run build:action` bundles it to `action/dist/index.cjs`, which is committed (CI checks it is up to date).
 - `src/lib/repoRoast.ts`: repo roasts. Two GitHub API calls (default branch and file tree), then up to 30 files fetched from raw.githubusercontent.com.
 
 ## Roadmap

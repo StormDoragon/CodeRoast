@@ -1,7 +1,7 @@
 import { inject, track as vercelTrack } from '@vercel/analytics';
 
 // Event names are the funnel we optimise for: roast → share → share_open → roast.
-export type EventName = 'roast' | 'roast_again' | 'example' | 'github_load' | 'share' | 'share_open' | 'share_cta' | 'repo_roast';
+export type EventName = 'roast' | 'roast_again' | 'example' | 'github_load' | 'share' | 'share_open' | 'share_cta' | 'repo_roast' | 'pr_action_cta' | 'pro_waitlist_cta';
 
 let enabled = false;
 

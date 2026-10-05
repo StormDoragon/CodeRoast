@@ -18,3 +18,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Action bundle is up to date
+        run: npm run build:action && git diff --exit-code action/dist
