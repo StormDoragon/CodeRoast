@@ -1,5 +1,4 @@
-import { langFromPath } from '../../src/lib/analyzer';
-import { analyzeRepo, repoRoast } from '../../src/lib/repoRoast';
+import { analyzeRepo, isRoastable, repoRoast } from '../../src/lib/repoRoast';
 import { verdictFor, type Intensity } from '../../src/lib/roastLite';
 import { encodeShare, shareUrl } from '../../src/lib/share';
 import { buildComment, MARKER } from './comment';
@@ -80,12 +79,12 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
     if (batch.length < 100) break;
   }
   const candidates = prFiles
-    .filter((f) => f.status !== 'removed' && langFromPath(f.filename) !== null)
+    .filter((f) => f.status !== 'removed' && isRoastable(f.filename))
     .sort((a, b) => b.changes - a.changes)
     .slice(0, maxFiles);
 
   if (candidates.length === 0) {
-    io.log('No supported source files changed (JS/TS/Python/Go/Rust/Java).');
+    io.log('No supported source files changed (JS/TS/Python/Go/Rust/Java; built, vendored and minified files are skipped).');
     return { score: null, failed: false, message: 'No supported source files changed.' };
   }
 

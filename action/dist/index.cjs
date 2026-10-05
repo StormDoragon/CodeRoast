@@ -494,6 +494,11 @@ function liteRoast(code, analysis, intensity = "savage", seed = 0) {
 }
 
 // src/lib/repoRoast.ts
+var IGNORED_DIR = /(^|\/)(node_modules|vendor|dist|build|out|target|coverage|\.next|third_party|__snapshots__|fixtures?)\//;
+var IGNORED_FILE = /\.(min|bundle|generated|pb)\.|\.d\.ts$/;
+function isRoastable(path) {
+  return langFromPath(path) !== null && !IGNORED_DIR.test(path) && !IGNORED_FILE.test(path);
+}
 var SEVERITY_RANK = { low: 0, medium: 1, high: 2 };
 function analyzeRepo(name, branch, files) {
   const results = files.map((f) => ({
@@ -699,9 +704,9 @@ async function run(env, io, fetchImpl = fetch) {
     prFiles.push(...batch);
     if (batch.length < 100) break;
   }
-  const candidates = prFiles.filter((f) => f.status !== "removed" && langFromPath(f.filename) !== null).sort((a, b) => b.changes - a.changes).slice(0, maxFiles);
+  const candidates = prFiles.filter((f) => f.status !== "removed" && isRoastable(f.filename)).sort((a, b) => b.changes - a.changes).slice(0, maxFiles);
   if (candidates.length === 0) {
-    io.log("No supported source files changed (JS/TS/Python/Go/Rust/Java).");
+    io.log("No supported source files changed (JS/TS/Python/Go/Rust/Java; built, vendored and minified files are skipped).");
     return { score: null, failed: false, message: "No supported source files changed." };
   }
   const files = [];

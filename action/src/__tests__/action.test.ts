@@ -46,6 +46,8 @@ function harness(opts: { comments?: { id: number; body: string }[]; failComment?
         { filename: 'lib/pad.js', status: 'added', changes: 10, patch: '@@ -0,0 +1,2 @@\n+a\n+b' },
         { filename: 'README.md', status: 'modified', changes: 5 },
         { filename: 'old.py', status: 'removed', changes: 9 },
+        { filename: 'action/dist/index.cjs', status: 'modified', changes: 900 },
+        { filename: 'vendor/lib.min.js', status: 'added', changes: 500 },
       ]);
     }
     if (url.includes('/contents/src/bad.js?ref=abc123')) return new Response(EXAMPLES[0].code);
