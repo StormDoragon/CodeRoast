@@ -56,7 +56,7 @@ code ──► analyzer.ts (rules, metrics, score) ──► roastLite.ts (jokes
 - `src/lib/analyzer.ts`: dependency-free static analysis. Strings and comments are stripped before matching, and the score is 10 minus weighted, capped penalties.
 - `src/lib/roastLite.ts`: seeded templates, so a roast is reproducible and "Roast again" re-rolls.
 - `src/lib/share.ts`: share payloads are base64url JSON, validated on read. Links look like `/r/<payload>`.
-- `api/share.ts` + `api/og.ts`: Vercel edge functions. `/r/<payload>` returns preview tags for crawlers and redirects visitors to `/#r=<payload>`. `/api/og?d=<payload>` renders the per-roast preview image. Both are stateless, so there's still no database.
+- `api/share.ts` (edge) + `api/og.ts` (Node.js; the edge runtime can't compile `@vercel/og`'s WebAssembly outside Next.js): `/r/<payload>` returns preview tags for crawlers and redirects visitors to `/#r=<payload>`. `/api/og?d=<payload>` renders the per-roast preview image. Both are stateless, so there's still no database. Relative imports in `api/` need explicit `.js` extensions, because Vercel runs them as native ESM.
 - `src/lib/repoRoast.ts`: repo roasts. Two GitHub API calls (default branch and file tree), then up to 30 files fetched from raw.githubusercontent.com.
 
 ## Roadmap
