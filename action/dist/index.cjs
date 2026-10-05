@@ -666,6 +666,15 @@ var MAX_FILE_BYTES = 15e4;
 function input(env, name, fallback = "") {
   return (env.get(`INPUT_${name.toUpperCase()}`) ?? "").trim() || fallback;
 }
+var MAX_COMMENT_PAGES = 30;
+async function findOwnComment(gh, repo, number) {
+  for (let page = 1; page <= MAX_COMMENT_PAGES; page++) {
+    const batch = await (await gh(`/repos/${repo}/issues/${number}/comments?per_page=100&page=${page}`)).json();
+    const hit = batch.find((c) => c.body?.includes(MARKER));
+    if (hit || batch.length < 100) return hit;
+  }
+  return void 0;
+}
 async function run(env, io, fetchImpl = fetch) {
   const token = input(env, "github-token");
   const intensityRaw = input(env, "intensity", "savage");
@@ -681,7 +690,6 @@ async function run(env, io, fetchImpl = fetch) {
     return { score: null, failed: false, message: "Not a pull_request event; nothing to roast." };
   }
   const baseRepo = env.get("GITHUB_REPOSITORY") ?? event.repository?.full_name;
-  const headRepo = pr.head?.repo?.full_name ?? baseRepo;
   const sha = pr.head.sha;
   const number = pr.number;
   const gh = async (path, init = {}) => {
@@ -713,7 +721,7 @@ async function run(env, io, fetchImpl = fetch) {
   for (const f of candidates) {
     const path = f.filename.split("/").map(encodeURIComponent).join("/");
     try {
-      const res = await gh(`/repos/${headRepo}/contents/${path}?ref=${sha}`, {
+      const res = await gh(`/repos/${baseRepo}/contents/${path}?ref=${sha}`, {
         headers: { Accept: "application/vnd.github.raw" }
       });
       const code = await res.text();
@@ -736,7 +744,7 @@ async function run(env, io, fetchImpl = fetch) {
     r: [roast.crimeScene, ...roast.lines.map((l) => l.joke), roast.closer]
   });
   const body = buildComment(analysis, roast, {
-    repo: headRepo,
+    repo: baseRepo,
     sha,
     site,
     shareUrl: shareUrl(site, encoded),
@@ -751,8 +759,7 @@ verdict=${v.title}
 `);
   if (shouldComment) {
     try {
-      const comments = await (await gh(`/repos/${baseRepo}/issues/${number}/comments?per_page=100`)).json();
-      const existing = comments.find((c) => c.body?.includes(MARKER));
+      const existing = await findOwnComment(gh, baseRepo, number);
       await gh(
         existing ? `/repos/${baseRepo}/issues/comments/${existing.id}` : `/repos/${baseRepo}/issues/${number}/comments`,
         { method: existing ? "PATCH" : "POST", body: JSON.stringify({ body }), headers: { "Content-Type": "application/json" } }

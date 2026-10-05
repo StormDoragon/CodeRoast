@@ -14,7 +14,7 @@ describe('changedLines', () => {
 
 type Call = { method: string; url: string; body?: string };
 
-function harness(opts: { comments?: { id: number; body: string }[]; failComment?: boolean; inputs?: Record<string, string>; event?: unknown } = {}) {
+function harness(opts: { comments?: { id: number; body: string }[][]; failComment?: boolean; inputs?: Record<string, string>; event?: unknown } = {}) {
   const calls: Call[] = [];
   const written: Record<string, string> = {};
   const logs: string[] = [];
@@ -52,7 +52,8 @@ function harness(opts: { comments?: { id: number; body: string }[]; failComment?
     }
     if (url.includes('/contents/src/bad.js?ref=abc123')) return new Response(EXAMPLES[0].code);
     if (url.includes('/contents/lib/pad.js?ref=abc123')) return new Response(EXAMPLES[3].code);
-    if (url.endsWith('/issues/7/comments?per_page=100')) return Response.json(opts.comments ?? []);
+    const commentsPage = url.match(/\/issues\/7\/comments\?per_page=100&page=(\d+)$/);
+    if (commentsPage) return Response.json(opts.comments?.[Number(commentsPage[1]) - 1] ?? []);
     if (opts.failComment && method !== 'GET') return new Response('forbidden', { status: 403 });
     if (url.includes('/comments')) return Response.json({ id: 1 });
     return new Response('not found', { status: 404 });
@@ -61,33 +62,43 @@ function harness(opts: { comments?: { id: number; body: string }[]; failComment?
 }
 
 describe('run', () => {
-  it('roasts changed files from the head repo and posts a comment', async () => {
+  it('roasts a fork PR via the base repo (the token is scoped to it) and posts a comment', async () => {
     const h = harness();
     const r = await run(h.env, h.io, h.fetchImpl);
     expect(r.failed).toBe(false);
     expect(r.score).toBeGreaterThanOrEqual(1);
-    // Only supported, non-removed files; contents read from the fork at the head SHA.
+    // Only supported, non-removed, non-generated files; read from the base repo at the head SHA.
     const contentCalls = h.calls.filter((c) => c.url.includes('/contents/'));
     expect(contentCalls.map((c) => c.url)).toEqual([
-      'https://api.github.com/repos/fork/app/contents/src/bad.js?ref=abc123',
-      'https://api.github.com/repos/fork/app/contents/lib/pad.js?ref=abc123',
+      'https://api.github.com/repos/acme/app/contents/src/bad.js?ref=abc123',
+      'https://api.github.com/repos/acme/app/contents/lib/pad.js?ref=abc123',
     ]);
+    expect(h.calls.some((c) => c.url.includes('/repos/fork/'))).toBe(false);
     const post = h.calls.find((c) => c.method === 'POST')!;
     expect(post.url).toBe('https://api.github.com/repos/acme/app/issues/7/comments');
     const body = JSON.parse(post.body!).body as string;
     expect(body).toContain(MARKER);
     expect(body).toContain('CodeRoast:');
-    expect(body).toContain('https://github.com/fork/app/blob/abc123/src/bad.js#L1) 🆕');
+    expect(body).toContain('https://github.com/acme/app/blob/abc123/src/bad.js#L1) 🆕');
     expect(body).toContain('https://code-roast-five.vercel.app/r/');
     expect(h.written['/summary.md']).toContain(MARKER);
     expect(h.written['/output.txt']).toMatch(/^score=\d+\nverdict=.+\n$/);
   });
 
   it('updates its previous comment instead of posting a new one', async () => {
-    const h = harness({ comments: [{ id: 99, body: `old\n${MARKER}` }] });
+    const h = harness({ comments: [[{ id: 99, body: `old\n${MARKER}` }]] });
     await run(h.env, h.io, h.fetchImpl);
     expect(h.calls.some((c) => c.method === 'POST')).toBe(false);
     expect(h.calls.find((c) => c.method === 'PATCH')!.url).toBe('https://api.github.com/repos/acme/app/issues/comments/99');
+  });
+
+  it('finds its comment past the first page instead of posting a duplicate', async () => {
+    const others = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, body: 'lgtm' }));
+    const h = harness({ comments: [others, [{ id: 555, body: MARKER }]] });
+    await run(h.env, h.io, h.fetchImpl);
+    expect(h.calls.filter((c) => c.url.includes('/issues/7/comments?')).map((c) => c.url.split('&')[1])).toEqual(['page=1', 'page=2']);
+    expect(h.calls.some((c) => c.method === 'POST')).toBe(false);
+    expect(h.calls.find((c) => c.method === 'PATCH')!.url).toBe('https://api.github.com/repos/acme/app/issues/comments/555');
   });
 
   it('still succeeds (summary only) when the token cannot comment, e.g. fork PRs', async () => {

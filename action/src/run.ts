@@ -36,6 +36,21 @@ interface PrFile {
   changes: number;
 }
 
+const MAX_COMMENT_PAGES = 30;
+
+// Busy PRs can have more than one page of comments; keep looking until the
+// marker turns up so we update our comment instead of posting duplicates.
+async function findOwnComment(gh: (path: string) => Promise<Response>, repo: string, number: number) {
+  for (let page = 1; page <= MAX_COMMENT_PAGES; page++) {
+    const batch: { id: number; body?: string }[] = await (
+      await gh(`/repos/${repo}/issues/${number}/comments?per_page=100&page=${page}`)
+    ).json();
+    const hit = batch.find((c) => c.body?.includes(MARKER));
+    if (hit || batch.length < 100) return hit;
+  }
+  return undefined;
+}
+
 export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Promise<RunResult> {
   const token = input(env, 'github-token');
   const intensityRaw = input(env, 'intensity', 'savage') as Intensity;
@@ -52,7 +67,8 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
     return { score: null, failed: false, message: 'Not a pull_request event; nothing to roast.' };
   }
   const baseRepo: string = env.get('GITHUB_REPOSITORY') ?? event.repository?.full_name;
-  const headRepo: string = pr.head?.repo?.full_name ?? baseRepo;
+  // Fork PR commits are reachable from the base repo, whose token we hold, so
+  // contents and blob links always use the base repo at the head SHA.
   const sha: string = pr.head.sha;
   const number: number = pr.number;
 
@@ -93,7 +109,7 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
   for (const f of candidates) {
     const path = f.filename.split('/').map(encodeURIComponent).join('/');
     try {
-      const res = await gh(`/repos/${headRepo}/contents/${path}?ref=${sha}`, {
+      const res = await gh(`/repos/${baseRepo}/contents/${path}?ref=${sha}`, {
         headers: { Accept: 'application/vnd.github.raw' },
       });
       const code = await res.text();
@@ -118,7 +134,7 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
     r: [roast.crimeScene, ...roast.lines.map((l) => l.joke), roast.closer],
   });
   const body = buildComment(analysis, roast, {
-    repo: headRepo,
+    repo: baseRepo,
     sha,
     site,
     shareUrl: shareUrl(site, encoded),
@@ -133,10 +149,7 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
 
   if (shouldComment) {
     try {
-      const comments: { id: number; body?: string }[] = await (
-        await gh(`/repos/${baseRepo}/issues/${number}/comments?per_page=100`)
-      ).json();
-      const existing = comments.find((c) => c.body?.includes(MARKER));
+      const existing = await findOwnComment(gh, baseRepo, number);
       await gh(
         existing ? `/repos/${baseRepo}/issues/comments/${existing.id}` : `/repos/${baseRepo}/issues/${number}/comments`,
         { method: existing ? 'PATCH' : 'POST', body: JSON.stringify({ body }), headers: { 'Content-Type': 'application/json' } },
