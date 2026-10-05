@@ -7,6 +7,7 @@ import { AI_MODELS, DEFAULT_MODEL, isKnownModel } from './lib/models';
 import { EXAMPLES } from './lib/examples';
 import { SITE_URL, SPONSOR_URL, PRO_WAITLIST_URL, REPO_URL } from './lib/config';
 import { checkWebGPUSupport } from './lib/webgpu-check';
+import { initAnalytics, track, scoreBucket } from './lib/analytics';
 import type { WorkerRequest, WorkerResponse } from './lib/worker';
 import { CodeEditor } from './components/CodeEditor';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -81,12 +82,18 @@ function App() {
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
       navigator.serviceWorker.register(`${import.meta.env.BASE_URL}service-worker.js`).catch(() => {});
     }
+    initAnalytics();
+    if (readShareFromHash(window.location.hash)) track('share_open');
     checkWebGPUSupport().then((s) => setWebgpu(s.supported));
     getPref('model', DEFAULT_MODEL).then((m) => setModel(isKnownModel(m) ? m : DEFAULT_MODEL));
     getPref<Intensity>('intensity', 'savage').then(setIntensity);
     listRoasts().then(setHistory).catch(() => {});
 
-    const onHash = () => setShared(readShareFromHash(window.location.hash));
+    const onHash = () => {
+      const payload = readShareFromHash(window.location.hash);
+      if (payload) track('share_open');
+      setShared(payload);
+    };
     window.addEventListener('hashchange', onHash);
     return () => {
       window.removeEventListener('hashchange', onHash);
@@ -148,6 +155,7 @@ function App() {
     }
     setError(null);
     const analysis = analyze(code, effectiveLang);
+    track('roast', { mode, lang: analysis.lang, intensity, score: scoreBucket(analysis.score) });
 
     if (mode === 'instant') {
       const r = liteRoast(code, analysis, intensity, nextSeed);
@@ -189,6 +197,7 @@ function App() {
       const { code: text, path } = await fetchGitHubSource(ghUrl);
       setCode(text);
       setLang(langFromPath(path) ?? 'auto');
+      track('github_load');
       setResult(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load that GitHub URL.');
@@ -198,6 +207,7 @@ function App() {
   };
 
   const goRoastYourOwn = () => {
+    track('share_cta');
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
     setShared(null);
     requestAnimationFrame(() => editorRef.current?.scrollIntoView({ behavior: 'smooth' }));
@@ -290,6 +300,7 @@ function App() {
                 <button
                   key={ex.label}
                   onClick={() => {
+                    track('example', { label: ex.label });
                     setCode(ex.code);
                     setLang(ex.lang);
                     setResult(null);
@@ -459,6 +470,7 @@ function App() {
                         onClick={() => {
                           const s = seed + 1;
                           setSeed(s);
+                          track('roast_again');
                           roast(s);
                         }}
                       >

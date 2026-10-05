@@ -46,11 +46,15 @@ Done in this pass, and why each item mattered:
 ## Plan
 
 ### Phase 1: Ship (week 1)
-- [ ] Enable GitHub Pages (Settings → Pages → Source: GitHub Actions) and merge to `main`.
-- [ ] Buy a short domain (`coderoast.dev` or similar), then set the `SITE_URL` repo variable.
-- [ ] Set up privacy-friendly analytics (Plausible/Umami) with events: `roast`, `share_click`, `share_open`, `badge_copy`, `ai_roast`.
-- [ ] Set `SPONSOR_URL` (GitHub Sponsors / Ko-fi) so the "Buy the ape a banana" link appears.
-- [ ] Do a manual QA pass on Safari iOS, Chrome Android, and Firefox.
+- [x] Deploy: Vercel production at https://code-roast-five.vercel.app, auto-deploying from `main`.
+- [x] Make production public (Standard Protection: production domains public, previews behind Vercel login).
+- [x] Set `VITE_SITE_URL` on Vercel so share links and `og:image` use absolute URLs.
+- [x] Analytics wiring (Vercel Web Analytics) with funnel events: `roast`, `share` (by channel), `share_open`, `share_cta`, `example`, `github_load`, `roast_again`. URL hash stripped before sending.
+- [x] Caching + security headers (`vercel.json`); removed the redundant GitHub Pages workflow.
+- [ ] **Owner:** enable Web Analytics in the Vercel project (Analytics tab). Custom events may require a paid Vercel plan; page views work on every plan.
+- [ ] **Owner:** buy a short domain (`coderoast.dev` or similar), add it to the Vercel project, then update `VITE_SITE_URL`.
+- [ ] **Owner:** create a GitHub Sponsors / Ko-fi page and set `VITE_SPONSOR_URL` on Vercel.
+- [ ] Manual QA pass on Safari iOS, Chrome Android, Firefox.
 
 ### Phase 2: Launch (weeks 2–3)
 - [ ] **Roast famous code** content series: roast well-known open-source files (left-pad, the original Facebook PHP, the Apollo 11 source). Post cards to X, Reddit (r/ProgrammerHumor), and LinkedIn. These are the launch assets.
