@@ -6,3 +6,5 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+# The GitHub Action runs its committed bundle.
+!action/dist/

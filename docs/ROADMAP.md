@@ -79,18 +79,34 @@ Launch kit with ready-to-post copy, timeline and assets: [docs/launch/README.md]
 ### Phase 4: Earn (month 2–6)
 Free stays free and local. Revenue comes from things that cost us money or save teams time:
 
-| Product | Price | What you get |
-|---|---|---|
-| **Free** | $0 | Instant + local AI roasts, share, badge |
-| **Pro** | $5/mo | Cloud model roasts (sharper, funnier), whole-repo roasts, custom card themes, no watermark |
-| **CodeRoast for GitHub** (App) | $19/mo per org | Auto-roasts every PR with a comment + score, with a team leaderboard. "Fun" code review that teams actually read. |
-| **Sponsors** | Variable | GitHub Sponsors / Ko-fi, plus a tasteful "This roast brought to you by" dev-tool sponsor slot on share cards |
-| **Merch** | One-off | "War Crime 1/10" / "Suspiciously Clean" stickers and shirts |
+| Product | Price | What you get | Status |
+|---|---|---|---|
+| **Free** | $0 | Instant + local AI roasts, repo roasts, share cards, badge, **PR Action** | ✅ Live |
+| **Pro** | $5/mo | Cloud model roasts (sharper, funnier), private repos, custom card themes, no watermark | Waitlist |
+| **CodeRoast for Teams** | $19/mo per org | Hosted GitHub App (no workflow file), private repos, team leaderboard, quality-gate dashboards, Slack digest | Next |
+| **Sponsors** | Variable | GitHub Sponsors / Ko-fi, plus a tasteful "This roast brought to you by" dev-tool sponsor slot on share cards | Owner setup |
+| **Merch** | One-off | "War Crime 1/10" / "Suspiciously Clean" stickers and shirts | Later |
 
-Steps:
-- [ ] Waitlist (set `PRO_WAITLIST_URL`); the Pro teaser only shows after a roast.
-- [ ] Payments via Stripe or Lemon Squeezy behind a small serverless API (the first piece of backend).
-- [ ] GitHub App MVP: reuse `analyzer.ts` + `roastLite.ts` server-side; they're already dependency-free.
+Done:
+- [x] **CodeRoast PR Action** (`uses: StormDoragon/CodeRoast@main`):
+  - every PR gets a self-updating roast comment with a crime-scene table, receipts linking to exact lines (🆕 marks lines the PR touched), fixes, and a share link;
+  - a `fail-below` quality gate, and `score`/`verdict` outputs;
+  - it runs in the user's own runner, so no infrastructure or cost for us;
+  - this repo roasts its own PRs with it.
+
+  This is the free funnel into Teams: each PR comment advertises CodeRoast to the whole team.
+- [x] In-app calls to action: "Roast every PR automatically" (always shown) and the Pro waitlist (shown when `VITE_PRO_WAITLIST_URL` is set). Both are tracked as analytics events.
+
+Owner steps (need your accounts):
+- [ ] Publish the Action to the **GitHub Marketplace**: create a release tagged `v1` and tick "Publish this Action to the GitHub Marketplace". Then switch the README to `@v1`.
+- [ ] Create a waitlist form (Tally/Typeform/Google Form) and set `VITE_PRO_WAITLIST_URL` on Vercel.
+- [ ] Set up GitHub Sponsors or Ko-fi and set `VITE_SPONSOR_URL`.
+- [ ] Open a **Lemon Squeezy** (handles global sales tax as merchant of record) or **Stripe** account for Pro checkout.
+
+Next build steps (once the waitlist shows demand):
+- [ ] Pro checkout plus license keys: a small serverless API (Vercel function and KV) that validates a key and unlocks Pro features in the app and the Action.
+- [ ] Cloud roast model behind the key (rate-limited, cost-capped).
+- [ ] Hosted GitHub App for Teams, reusing `action/src/run.ts`. The logic is already independent of where it runs.
 
 ## Risks & how we handle them
 - **"It's just a joke app" fatigue** → the fixes make it genuinely useful; lean into the "funniest linter" positioning.
