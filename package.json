@@ -18,12 +18,14 @@
     "@codemirror/theme-one-dark": "^6.1.2",
     "@mlc-ai/web-llm": "^0.2.81",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/og": "^0.8.6",
     "codemirror": "^6.0.1",
     "idb": "^8.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.3",

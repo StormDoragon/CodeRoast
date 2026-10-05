@@ -47,7 +47,7 @@ export function decodeShare(encoded: string): SharePayload | null {
       v: 1,
       s,
       t: String(p.t ?? '').slice(0, 40),
-      l: String(p.l ?? '').slice(0, 20),
+      l: String(p.l ?? '').slice(0, 60),
       n: Math.max(0, Math.min(1e6, Math.round(Number(p.n) || 0))),
       r: p.r.slice(0, MAX_LINES).map((x: unknown) => String(x).slice(0, MAX_LINE_LEN)),
     };
@@ -56,8 +56,10 @@ export function decodeShare(encoded: string): SharePayload | null {
   }
 }
 
+// Path-based so social crawlers can render a per-roast preview (they never see
+// the hash). /r/<d> redirects into the app at /#r=<d>.
 export function shareUrl(base: string, encoded: string) {
-  return `${base}/#r=${encoded}`;
+  return `${base}/r/${encoded}`;
 }
 
 export function readShareFromHash(hash: string): SharePayload | null {

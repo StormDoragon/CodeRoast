@@ -82,7 +82,8 @@ export function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   const maxW = W - x - 56;
   ctx.fillStyle = '#f87171';
   ctx.font = font(30, 800);
-  ctx.fillText(`🔥 CodeRoast · ${d.lang}`, x, 108);
+  const label = d.lang.length > 34 ? `${d.lang.slice(0, 33)}…` : d.lang;
+  ctx.fillText(`🔥 CodeRoast · ${label}`, x, 108);
 
   ctx.fillStyle = '#e4e4e7';
   ctx.font = font(28, 500);

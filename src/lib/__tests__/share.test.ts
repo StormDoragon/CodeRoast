@@ -7,7 +7,7 @@ describe('share links', () => {
     const enc = encodeShare({ s: 3, t: 'Dumpster Fire', l: 'Python', n: 42, r: ['“quotes” 🔥 émoji', 'line two'] });
     expect(enc).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(readShareFromHash(`#r=${enc}`)).toEqual({ v: 1, s: 3, t: 'Dumpster Fire', l: 'Python', n: 42, r: ['“quotes” 🔥 émoji', 'line two'] });
-    expect(shareUrl('https://x.dev', enc)).toBe(`https://x.dev/#r=${enc}`);
+    expect(shareUrl('https://x.dev', enc)).toBe(`https://x.dev/r/${enc}`);
   });
 
   it('rejects garbage and out-of-range scores', () => {

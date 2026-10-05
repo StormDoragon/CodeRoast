@@ -11,7 +11,8 @@ Runs 100% in your browser. No signup, no server, and your code never leaves your
 - ⚡ **Instant roasts on any device.** A built-in static analyzer (24 rules) plus a joke engine. No download, no GPU, results in milliseconds.
 - 🧠 **AI roasts (optional).** Runs a small code LLM locally via WebGPU ([WebLLM](https://github.com/mlc-ai/web-llm)), grounded in the analyzer's findings.
 - 🧾 **Receipts + fixes.** Every joke points at real lines and tells you how to fix them.
-- 🔗 **Share links** that carry only the roast (never your code), with a challenge page for whoever opens them.
+- 📦 **Roast a whole repo:** paste `github.com/owner/repo` and get a repo score plus a "crime scene" of the worst files.
+- 🔗 **Share links** that carry only the roast (never your code). Each one gets its own preview image on X, Slack, Discord, and other sites, and opens a challenge page.
 - 🖼️ **Meme card PNG**, X/LinkedIn sharing, native share sheet.
 - 🍌 **README badge.** Show off your score: [![Banana Score: 9/10](https://img.shields.io/badge/Banana_Score-9%2F10-brightgreen?labelColor=1f2937)](https://github.com/StormDoragon/CodeRoast)
 - 😌 / 🔥 / 💢 **Gentle, Savage, Unhinged** intensity.
@@ -54,7 +55,9 @@ code ──► analyzer.ts (rules, metrics, score) ──► roastLite.ts (jokes
 
 - `src/lib/analyzer.ts`: dependency-free static analysis. Strings and comments are stripped before matching, and the score is 10 minus weighted, capped penalties.
 - `src/lib/roastLite.ts`: seeded templates, so a roast is reproducible and "Roast again" re-rolls.
-- `src/lib/share.ts`: share payloads are base64url JSON in the URL hash, validated on read.
+- `src/lib/share.ts`: share payloads are base64url JSON, validated on read. Links look like `/r/<payload>`.
+- `api/share.ts` + `api/og.ts`: Vercel edge functions. `/r/<payload>` returns preview tags for crawlers and redirects visitors to `/#r=<payload>`. `/api/og?d=<payload>` renders the per-roast preview image. Both are stateless, so there's still no database.
+- `src/lib/repoRoast.ts`: repo roasts. Two GitHub API calls (default branch and file tree), then up to 30 files fetched from raw.githubusercontent.com.
 
 ## Roadmap
 
