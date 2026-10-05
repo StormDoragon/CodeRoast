@@ -32,4 +32,11 @@ describe('liteRoast', () => {
     expect(verdictFor(5).title).toBe('Aggressively Mid');
     expect(verdictFor(10).title).toBe('Suspiciously Clean');
   });
+
+  it('uses non-brutal openers for high scores', () => {
+    const leftPad = EXAMPLES.find((e) => e.label.startsWith('left-pad'))!;
+    const la = analyze(leftPad.code, 'javascript');
+    expect(la.score).toBeGreaterThanOrEqual(8);
+    expect(liteRoast(leftPad.code, la, 'savage').opener).not.toMatch(/hurt|WHO WROTE|screaming/i);
+  });
 });

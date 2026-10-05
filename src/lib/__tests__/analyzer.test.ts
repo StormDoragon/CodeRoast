@@ -61,4 +61,9 @@ export function average(values: number[]): number {
     expect(langFromPath('/a/b/c.tsx')).toBe('typescript');
     expect(langFromPath('/a/b/README.md')).toBeNull();
   });
+
+  it('roasts the Go example', () => {
+    const go = EXAMPLES.find((e) => e.lang === 'go')!;
+    expect(rules(go.code, 'go')).toEqual(expect.arrayContaining(['secret', 'ignoredError', 'deepNesting', 'debugLog', 'todo']));
+  });
 });
