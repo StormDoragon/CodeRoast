@@ -4,6 +4,8 @@ import { ImageResponse } from '@vercel/og';
 import { encodeShare } from '../../lib/share';
 import { sharePage } from '../sharePage';
 import { ogTree } from '../ogImage';
+import { GET as ogHandler } from '../../../api/og';
+import shareHandler from '../../../api/share';
 
 const payload = { s: 3, t: 'Dumpster Fire', l: 'TypeScript', n: 11, r: ['3 `any`s. You installed TypeScript and then politely asked it to leave.', 'Second joke.'] };
 
@@ -47,4 +49,23 @@ describe('og image', () => {
       if (process.env.OG_OUT) writeFileSync(`${process.env.OG_OUT}/og-${name}.png`, buf);
     }
   }, 30000);
+});
+
+describe('api handlers', () => {
+  it('GET /api/og returns a cached PNG', async () => {
+    const res = await ogHandler(new Request(`https://roast.dev/api/og?d=${encodeShare(payload)}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    expect(res.headers.get('cache-control')).toContain('immutable');
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.length).toBeGreaterThan(5000);
+    expect(buf.subarray(1, 4).toString()).toBe('PNG');
+  }, 30000);
+
+  it('/api/share returns HTML with the request origin', async () => {
+    const res = await shareHandler(new Request(`https://preview.dev/api/share?d=${encodeShare(payload)}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(await res.text()).toContain('https://preview.dev/api/og?d=');
+  });
 });
