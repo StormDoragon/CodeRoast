@@ -1,6 +1,6 @@
 import { ImageResponse } from '@vercel/og';
-import { decodeShare } from '../src/lib/share';
-import { ogTree } from '../src/server/ogImage';
+import { decodeShare } from '../src/lib/share.js';
+import { ogTree } from '../src/server/ogImage.js';
 
 // Node.js runtime: Vercel's edge runtime refuses to compile @vercel/og's
 // WebAssembly outside Next.js ("Wasm code generation disallowed by embedder").

@@ -1,6 +1,6 @@
 // HTML served at /r/<payload>: preview tags for social crawlers (which never
 // see URL hashes) and an instant client-side hop into the app for humans.
-import { decodeShare } from '../lib/share';
+import { decodeShare } from '../lib/share.js';
 
 const ENCODED = /^[A-Za-z0-9_-]{1,4000}$/;
 

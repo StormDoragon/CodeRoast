@@ -1,4 +1,4 @@
-import { sharePage } from '../src/server/sharePage';
+import { sharePage } from '../src/server/sharePage.js';
 
 export const config = { runtime: 'edge' };
 
