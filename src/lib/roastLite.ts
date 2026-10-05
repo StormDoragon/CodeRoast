@@ -237,6 +237,12 @@ const OPENERS: Record<Intensity, string[]> = {
   ],
 };
 
+const GOOD_OPENERS = [
+  'I sharpened my claws for this and… huh. It\'s actually fine. Mostly.',
+  'Okay, this is better than I expected. Don\'t get cocky, I still found something.',
+  'Respectable. Annoyingly respectable. But I didn\'t come here for nothing.',
+];
+
 const CLEAN_LINES = [
   'I came here to roast and found… clean code? Suspicious. Did you copy this from the docs?',
   'No red flags. I\'m not impressed, I\'m worried. What are you hiding?',
@@ -313,7 +319,12 @@ export function liteRoast(code: string, analysis: Analysis, intensity: Intensity
 
   const score = analysis.score;
   const real = analysis.findings.filter((f) => f.rule !== 'tooShort');
-  const opener = real.length === 0 && analysis.findings.length === 0 ? pick(CLEAN_LINES) : pick(OPENERS[intensity]);
+  const opener =
+    real.length === 0 && analysis.findings.length === 0
+      ? pick(CLEAN_LINES)
+      : analysis.score >= 8
+        ? pick(GOOD_OPENERS)
+        : pick(OPENERS[intensity]);
   const bucket = score <= 4 ? 'low' : score <= 7 ? 'mid' : 'high';
 
   return {

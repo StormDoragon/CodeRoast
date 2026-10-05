@@ -81,4 +81,66 @@ def load(items=[], opts={}):
     return items
 `,
   },
+  {
+    label: 'left-pad (broke npm, 2016)',
+    lang: 'javascript',
+    code: `// left-pad by Azer Koçulu (WTFPL). Unpublished in March 2016, it broke
+// thousands of builds, including React and Babel. Can it survive the ape?
+module.exports = leftpad;
+
+function leftpad (str, len, ch) {
+  str = String(str);
+
+  var i = -1;
+
+  if (!ch && ch !== 0) ch = ' ';
+
+  len = len - str.length;
+
+  while (++i < len) {
+    str = ch + str;
+  }
+
+  return str;
+}
+`,
+  },
+  {
+    label: 'Go: the 2 a.m. hotfix',
+    lang: 'go',
+    code: `package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+)
+
+var authToken = "prod-admin-token-final-v2-REAL"
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	// HACK: prod is down, fix properly tomorrow
+	body, _ := os.ReadFile("config.json")
+	var cfg map[string]interface{}
+	_ = json.Unmarshal(body, &cfg)
+	fmt.Println("config loaded", cfg)
+	if r.URL.Query().Get("admin") == "true" {
+		if cfg["debug"] != nil {
+			if cfg["debug"].(bool) {
+				if r.Header.Get("X-Token") == authToken {
+					fmt.Println("admin mode!!!")
+					w.Write([]byte("welcome back, admin"))
+				}
+			}
+		}
+	}
+}
+
+func main() {
+	http.HandleFunc("/", handler)
+	http.ListenAndServe(":8080", nil)
+}
+`,
+  },
 ];

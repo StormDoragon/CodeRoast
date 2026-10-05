@@ -69,7 +69,11 @@ export function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   ctx.font = font(64);
   ctx.fillText(d.emoji, 206, 470);
   ctx.fillStyle = '#fafafa';
-  ctx.font = font(28, 700);
+  let titleSize = 28;
+  ctx.font = font(titleSize, 700);
+  while (ctx.measureText(d.title.toUpperCase()).width > 270 && titleSize > 16) {
+    ctx.font = font(--titleSize, 700);
+  }
   ctx.fillText(d.title.toUpperCase(), 206, 535);
 
   // Roast text
@@ -85,10 +89,11 @@ export function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   let y = 170;
   const lineH = 38;
   const maxY = H - 110;
-  outer: for (const raw of d.lines) {
+  // Only draw quotes that fit completely; a joke cut mid-sentence isn't funny.
+  for (const raw of d.lines) {
     const wrapped = wrap(ctx, `“${raw}”`, maxW);
+    if (y + (wrapped.length - 1) * lineH > maxY) break;
     for (const w of wrapped) {
-      if (y > maxY) break outer;
       ctx.fillText(w, x, y);
       y += lineH;
     }

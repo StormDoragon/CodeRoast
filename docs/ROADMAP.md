@@ -57,11 +57,16 @@ Done in this pass, and why each item mattered:
 - [ ] Manual QA pass on Safari iOS, Chrome Android, Firefox.
 
 ### Phase 2: Launch (weeks 2–3)
-- [ ] **Roast famous code** content series: roast well-known open-source files (left-pad, the original Facebook PHP, the Apollo 11 source). Post cards to X, Reddit (r/ProgrammerHumor), and LinkedIn. These are the launch assets.
-- [ ] Show HN: "CodeRoast: a code roaster that runs entirely in your browser (no server, your code never leaves)." Lead with privacy + the tech.
-- [ ] Product Hunt launch on a Tuesday, with the meme cards as the gallery.
-- [ ] Short demo video (15 s): paste awful code → 1/10 War Crime → share.
-- [ ] Reach out to 20 dev YouTubers/streamers. "Roast your viewers' code live" is a ready-made segment.
+Launch kit with ready-to-post copy, timeline and assets: [docs/launch/README.md](launch/README.md).
+
+- [x] **Roast famous code** in-app: left-pad (the 11 lines that broke npm in 2016) scores 9/10, which is the launch hook. Also added a Go "2 a.m. hotfix" example.
+- [x] Launch assets generated from the real app: 5 roast cards (1200×630) and a 14 s demo video (`docs/launch/demo.mp4`).
+- [x] Copy for Show HN, Product Hunt (tagline, description, maker comment, gallery), X teaser and thread, LinkedIn, Reddit, and creator outreach DM.
+- [x] Card polish: only complete quotes are drawn, and long verdicts shrink to fit. High scores get non-brutal openers.
+- [ ] **Owner:** T-5 teaser post with the left-pad card.
+- [ ] **Owner:** creator and newsletter outreach (target list in the kit).
+- [ ] **Owner:** launch day (Tuesday): Product Hunt 00:01 PT, then Show HN about 08:00 PT, X thread, LinkedIn.
+- [ ] **Owner + me:** reply to feedback for 7 days. Every false positive becomes a test + fix, shipped daily.
 
 ### Phase 3: Go viral (month 1–2)
 - [ ] **Dynamic OG images per share link** (edge function rendering the card), so every shared link previews with its own score. This is the single biggest lever on click-through.
