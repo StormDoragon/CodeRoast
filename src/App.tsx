@@ -9,16 +9,19 @@ import { SITE_URL, SPONSOR_URL, PRO_WAITLIST_URL, REPO_URL } from './lib/config'
 import { checkWebGPUSupport } from './lib/webgpu-check';
 import { initAnalytics, track, scoreBucket } from './lib/analytics';
 import type { WorkerRequest, WorkerResponse } from './lib/worker';
+import { analyzeRepo, fetchRepo, parseRepoUrl, repoRoast, type RepoAnalysis, type RepoRoast } from './lib/repoRoast';
 import { CodeEditor } from './components/CodeEditor';
 import { ErrorBanner } from './components/ErrorBanner';
 import { ScoreHeader, LiteRoastView, AiRoastView } from './components/RoastResult';
 import { SharePanel } from './components/SharePanel';
+import { RepoCrimeScene } from './components/RepoCrimeScene';
 
 type Mode = 'instant' | 'ai';
 
 type Result =
   | { kind: 'lite'; analysis: Analysis; roast: LiteRoast }
-  | { kind: 'ai'; analysis: Analysis; text: string; streaming: boolean };
+  | { kind: 'ai'; analysis: Analysis; text: string; streaming: boolean }
+  | { kind: 'repo'; analysis: Analysis; repo: RepoAnalysis; roast: RepoRoast };
 
 const LANG_OPTIONS: Array<{ value: Lang | 'auto'; label: string }> = [
   { value: 'auto', label: 'Auto-detect' },
@@ -68,6 +71,7 @@ function App() {
   const [history, setHistory] = React.useState<SavedRoast[]>([]);
   const [ghUrl, setGhUrl] = React.useState('');
   const [ghLoading, setGhLoading] = React.useState(false);
+  const [repoProgress, setRepoProgress] = React.useState<{ done: number; total: number } | null>(null);
 
   const workerRef = React.useRef<Worker | null>(null);
   const requestId = React.useRef(0);
@@ -134,11 +138,11 @@ function App() {
     return workerRef.current;
   };
 
-  const persist = (analysis: Analysis, text: string, source: string) => {
+  const persist = (analysis: Analysis, text: string, source: string, label: string = analysis.lang) => {
     const v = verdictFor(analysis.score);
     saveRoast({
       createdAt: Date.now(),
-      lang: analysis.lang,
+      lang: label,
       score: analysis.score,
       title: v.title,
       text,
@@ -188,8 +192,31 @@ function App() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  const roastRepo = async (ref: NonNullable<ReturnType<typeof parseRepoUrl>>) => {
+    setGhLoading(true);
+    setError(null);
+    setRepoProgress({ done: 0, total: 0 });
+    try {
+      const { files, branch } = await fetchRepo(ref, (done, total) => setRepoProgress({ done, total }));
+      const name = `${ref.owner}/${ref.repo}${ref.path ? `/${ref.path}` : ''}`;
+      const repo = analyzeRepo(name, branch, files);
+      const r = repoRoast(repo, intensity, seed);
+      setResult({ kind: 'repo', analysis: repo.aggregate, repo, roast: r });
+      track('repo_roast', { files: repo.files.length, score: scoreBucket(repo.score) });
+      persist(repo.aggregate, [r.crimeScene, liteRoastToText(r)].join('\n\n'), name, name);
+      requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to roast that repo.');
+    } finally {
+      setGhLoading(false);
+      setRepoProgress(null);
+    }
+  };
+
   const loadGitHub = async () => {
     if (!ghUrl.trim()) return;
+    const repoRef = parseRepoUrl(ghUrl);
+    if (repoRef) return roastRepo(repoRef);
     setGhLoading(true);
     setError(null);
     try {
@@ -217,10 +244,14 @@ function App() {
     if (!result || (result.kind === 'ai' && result.streaming)) return null;
     const v = verdictFor(result.analysis.score);
     const lines =
-      result.kind === 'lite'
-        ? [...result.roast.lines.map((l) => l.joke), result.roast.closer]
-        : aiShareLines(result.text);
-    const langLabel = LANG_LABEL[result.analysis.lang] ?? result.analysis.lang;
+      result.kind === 'ai'
+        ? aiShareLines(result.text)
+        : [
+            ...(result.kind === 'repo' ? [result.roast.crimeScene] : []),
+            ...result.roast.lines.map((l) => l.joke),
+            result.roast.closer,
+          ];
+    const langLabel = result.kind === 'repo' ? result.repo.name : (LANG_LABEL[result.analysis.lang] ?? result.analysis.lang);
     const encoded = encodeShare({
       s: result.analysis.score,
       t: v.title,
@@ -230,7 +261,9 @@ function App() {
     });
     return {
       url: shareUrl(SITE_URL, encoded),
-      tweet: `My ${langLabel} code just got roasted 🔥🐵 Banana Score: ${result.analysis.score}/10 — "${v.title}". Think yours is better?`,
+      tweet: result.kind === 'repo'
+        ? `My repo ${langLabel} just got roasted 🔥🐵 Banana Score: ${result.analysis.score}/10 — "${v.title}". Roast yours:`
+        : `My ${langLabel} code just got roasted 🔥🐵 Banana Score: ${result.analysis.score}/10 — "${v.title}". Think yours is better?`,
       card: { score: result.analysis.score, title: v.title, emoji: v.emoji, lang: langLabel, lines, site: SITE_URL },
     };
   }, [result]);
@@ -334,8 +367,8 @@ function App() {
                 type="url"
                 value={ghUrl}
                 onChange={(e) => setGhUrl(e.target.value)}
-                placeholder="…or paste a GitHub file URL"
-                aria-label="GitHub file URL"
+                placeholder="…or paste a GitHub file or repo URL"
+                aria-label="GitHub file or repo URL"
                 className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-red-500 focus:outline-none"
               />
               <button
@@ -343,7 +376,13 @@ function App() {
                 disabled={ghLoading || !ghUrl.trim()}
                 className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700 disabled:opacity-50"
               >
-                {ghLoading ? 'Loading…' : 'Load'}
+                {ghLoading
+                  ? repoProgress && repoProgress.total > 0
+                    ? `Reading ${repoProgress.done}/${repoProgress.total}…`
+                    : 'Loading…'
+                  : parseRepoUrl(ghUrl)
+                    ? '🔥 Roast repo'
+                    : 'Load'}
               </button>
             </form>
 
@@ -443,7 +482,11 @@ function App() {
                   score={result.analysis.score}
                   title={verdictFor(result.analysis.score).title}
                   emoji={verdictFor(result.analysis.score).emoji}
-                  subtitle={`${LANG_LABEL[result.analysis.lang] ?? result.analysis.lang} · ${result.analysis.metrics.totalLines} lines · ${result.analysis.findings.length} issue types · max nesting ${result.analysis.metrics.maxDepth}`}
+                  subtitle={
+                    result.kind === 'repo'
+                      ? `${result.repo.name} · ${result.repo.files.length} files · ${result.repo.totalLines.toLocaleString()} lines · ${result.analysis.findings.length} issue types`
+                      : `${LANG_LABEL[result.analysis.lang] ?? result.analysis.lang} · ${result.analysis.metrics.totalLines} lines · ${result.analysis.findings.length} issue types · max nesting ${result.analysis.metrics.maxDepth}`
+                  }
                 />
                 <div className="my-5 h-px bg-zinc-800" />
                 {aiStatus && (
@@ -457,13 +500,14 @@ function App() {
                     </div>
                   </div>
                 )}
-                {result.kind === 'lite' ? (
+                {result.kind === 'repo' && <RepoCrimeScene repo={result.repo} headline={result.roast.crimeScene} />}
+                {result.kind !== 'ai' ? (
                   <LiteRoastView roast={result.roast} showFixes={showFixes} />
                 ) : (
                   <AiRoastView text={result.text} streaming={result.streaming} />
                 )}
                 <div className="mt-5 flex flex-wrap gap-2">
-                  {result.kind === 'lite' && (
+                  {result.kind !== 'ai' && (
                     <>
                       <button
                         className={chip(false)}
@@ -471,7 +515,11 @@ function App() {
                           const s = seed + 1;
                           setSeed(s);
                           track('roast_again');
-                          roast(s);
+                          if (result.kind === 'repo') {
+                            setResult({ ...result, roast: repoRoast(result.repo, intensity, s) });
+                          } else {
+                            roast(s);
+                          }
                         }}
                       >
                         🎲 Roast again

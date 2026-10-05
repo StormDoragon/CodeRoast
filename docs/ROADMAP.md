@@ -69,12 +69,12 @@ Launch kit with ready-to-post copy, timeline and assets: [docs/launch/README.md]
 - [ ] **Owner + me:** reply to feedback for 7 days. Every false positive becomes a test + fix, shipped daily.
 
 ### Phase 3: Go viral (month 1–2)
-- [ ] **Dynamic OG images per share link** (edge function rendering the card), so every shared link previews with its own score. This is the single biggest lever on click-through.
-- [ ] **Roast a whole repo:** paste `github.com/user/repo` and get a repo-level verdict ("your repo is 40% TODOs").
-- [ ] **Roast battles:** two snippets, side by side, with a winner card.
-- [ ] **Hall of Shame / Fame:** opt-in public leaderboard of the worst and best scores.
+- [x] **A preview image for every share link.** Share links are now `/r/<payload>`. A Vercel edge function serves preview tags to crawlers and sends visitors into the app, and `/api/og` renders a 1200×630 image showing that roast's score, verdict and jokes. Old `#r=` links still work.
+- [x] **Roast a whole repo.** Paste `github.com/owner/repo` (or a `/tree/branch/path` URL) to roast up to 30 of the largest source files. You get a line-weighted repo score, a "crime scene" list of the worst files with links, and aggregated jokes. Repo roasts are shareable.
+- [ ] **Roast battles:** two snippets side by side, with a winner card.
+- [ ] **Hall of Shame / Fame:** an opt-in public leaderboard. This needs storage (e.g. Vercel KV / Upstash) and moderation.
 - [ ] More languages (C#, PHP, Ruby, C/C++, Swift, SQL) and 3× the joke pool per rule.
-- [ ] i18n of jokes (ES, PT-BR, DE, JA, HI) for big dev communities.
+- [ ] Translate the jokes (ES, PT-BR, DE, JA, HI).
 
 ### Phase 4: Earn (month 2–6)
 Free stays free and local. Revenue comes from things that cost us money or save teams time:
