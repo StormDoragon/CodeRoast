@@ -1,35 +1,12 @@
-declare module 'web-tree-sitter' {
-  const Parser: any;
-  export default Parser;
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_SITE_URL?: string;
+  readonly VITE_SPONSOR_URL?: string;
+  readonly VITE_PRO_WAITLIST_URL?: string;
 }
 
-declare module '*.wasm' {
-  const url: string;
-  export default url;
-}
-
-declare module '*.wasm?init' {
-  const init: any;
-  export default init;
-}
-
-// WebGPU types
+// Minimal WebGPU surface used by the capability check.
 interface Navigator {
-  gpu?: GPU;
-}
-
-interface GPU {
-  requestAdapter(options?: any): Promise<GPUAdapter | null>;
-}
-
-interface GPUAdapter {
-  requestDevice(descriptor?: any): Promise<GPUDevice>;
-}
-
-interface GPUDevice {
-  queue: GPUQueue;
-}
-
-interface GPUQueue {
-  submit(commandBuffers: any[]): void;
+  gpu?: { requestAdapter(options?: unknown): Promise<unknown | null> };
 }

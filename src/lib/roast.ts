@@ -1,78 +1,80 @@
-import { getStructuralSummary } from './treeParser';
-import { CreateMLCEngine } from '@mlc-ai/web-llm';
+import { CreateMLCEngine, type MLCEngine, type InitProgressReport } from '@mlc-ai/web-llm';
+import type { Analysis } from './analyzer';
+import type { Intensity } from './roastLite';
 
-const engines = new Map<string, Promise<any>>();
+let current: { model: string; engine: Promise<MLCEngine> } | null = null;
 
-export function getEngine(modelName: string = 'Qwen2-1.5B-Instruct-q4f16_1-MLC') {
-  if (!engines.has(modelName)) {
-    engines.set(
-      modelName,
-      CreateMLCEngine(modelName)
-    );
+// Keep one engine alive; switching models unloads the previous one so we
+// don't hold two multi-hundred-MB models in GPU memory.
+export function getEngine(model: string, onProgress?: (r: InitProgressReport) => void) {
+  if (current?.model !== model) {
+    current?.engine.then((e) => e.unload()).catch(() => {});
+    current = { model, engine: CreateMLCEngine(model, { initProgressCallback: onProgress }) };
+    current.engine.catch(() => {
+      current = null;
+    });
   }
-  return engines.get(modelName)!;
+  return current.engine;
 }
 
-export async function roastCode(
+const MAX_CODE_CHARS = 6000;
+
+const TONE: Record<Intensity, string> = {
+  gentle: 'Be playful and kind, like a senior dev teasing a friend. Every joke should come with a helpful tip.',
+  savage: 'Be savage, specific and funny, like a comedy roast. Punch at the code, never at the person.',
+  unhinged: 'Be completely unhinged and dramatic, maximum chaos energy. Still stay specific to the code. No slurs, no attacks on the person.',
+};
+
+export function buildPrompt(code: string, analysis: Analysis, intensity: Intensity) {
+  const clipped = code.length > MAX_CODE_CHARS ? `${code.slice(0, MAX_CODE_CHARS)}\n… (truncated)` : code;
+  const receipts = analysis.findings.length
+    ? analysis.findings
+        .map((f) => `- ${f.rule} x${f.count}${f.lines.length ? ` (lines ${f.lines.join(', ')})` : ''}`)
+        .join('\n')
+    : '- none found';
+
+  return [
+    {
+      role: 'system' as const,
+      content: `You are CodeRoast, a stand-up comedian ape who reviews code. ${TONE[intensity]}
+Rules: 4-7 short bullet points, each a specific joke about a real issue in the code, followed by "Fix:" and a one-line fix.
+Finish with exactly: "Banana Score: ${analysis.score}/10".`,
+    },
+    {
+      role: 'user' as const,
+      content: `Language: ${analysis.lang}. Lines: ${analysis.metrics.totalLines}. Max nesting: ${analysis.metrics.maxDepth}.
+Static analysis receipts:
+${receipts}
+
+Code:
+\`\`\`${analysis.lang}
+${clipped}
+\`\`\``,
+    },
+  ];
+}
+
+export async function aiRoast(
   code: string,
-  lang: string,
-  modelName: string = 'Qwen2-1.5B-Instruct-q4f16_1-MLC',
-  temperature: number = 0.95,
-  onToken?: (token: string) => void
+  analysis: Analysis,
+  intensity: Intensity,
+  model: string,
+  onToken: (t: string) => void,
+  onProgress?: (r: InitProgressReport) => void,
 ): Promise<string> {
-  const structure = await getStructuralSummary(code, lang);
-
-  // Enhanced structural analysis with pattern detection
-  const patterns: string[] = [];
-
-  if ((structure as any).maxDepth > 5) {
-    patterns.push(`deep nesting (>5 levels)`);
-  }
-  if ((structure as any).loops > 3) {
-    patterns.push(`${(structure as any).loops} nested loops (yikes)`);
-  }
-  if ((structure as any).functions === 0 && (structure as any).methods === 0) {
-    patterns.push(`no functions (just globals?)`);
-  }
-  if ((structure as any).suspiciousNames && (structure as any).suspiciousNames.length > 0) {
-    patterns.push(`sus variable names: ${(structure as any).suspiciousNames.join(', ')}`);
-  }
-  if ((structure as any).totalLines > 500) {
-    patterns.push(`thicc file (${(structure as any).totalLines} lines)`);
-  }
-
-  const patternSummary = patterns.length > 0 ? `Red flags: ${patterns.join('; ')}` : 'Code looks... acceptable?';
-
-  const prompt = `You are CodeRoast, the angriest ape in the codebase.
-Code (${lang}):
-\`\`\`
-${code}
-\`\`\`
-
-Structure Analysis:
-- Functions: ${(structure as any).functions}
-- Methods: ${(structure as any).methods}
-- Loops: ${(structure as any).loops}
-- Max Depth: ${(structure as any).maxDepth}
-- Lines: ${(structure as any).totalLines}
-- ${patternSummary}
-
-Your job: Roast this code like it owes you money. Be savage, specific, and funny.
-End with a Banana Score (1–10, where 10 = pristine, 1 = war crime).
-Format: [Your roast here]\nBanana Score: X/10`;
-
-  const engine = await getEngine(modelName);
+  const engine = await getEngine(model, onProgress);
+  const temperature = intensity === 'gentle' ? 0.6 : intensity === 'savage' ? 0.9 : 1.2;
   const stream = await engine.chat.completions.create({
-    messages: [{ role: 'user', content: prompt }],
-    temperature: Math.min(Math.max(temperature, 0.5), 1.5),
+    messages: buildPrompt(code, analysis, intensity),
+    temperature,
+    max_tokens: 700,
     stream: true,
   });
-
   let full = '';
   for await (const chunk of stream) {
     const token = chunk.choices[0]?.delta?.content || '';
     full += token;
-    if (onToken) onToken(token);
+    onToken(token);
   }
   return full;
 }
