@@ -1,22 +1,8 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# builds
-/dist
-/build
-
-# WebLLM caches (big but necessary)
-/webllm-cache/
-/mlc-ai/
-
-# WASM (if you ever build custom)
-/public/tree-sitter-*.wasm   (only if you regenerate)
-
-# misc
-.DS_Store
+node_modules/
+dist/
+.env
 .env*.local
 *.log
+.DS_Store
 .vscode/
 .idea/

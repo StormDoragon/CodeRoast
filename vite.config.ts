@@ -1,37 +1,34 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-export default defineConfig({
-  plugins: [react()],
-  publicDir: 'public',
-  optimizeDeps: {
-    exclude: ['web-tree-sitter', '@mlc-ai/web-llm'],
-  },
-  build: {
-    target: 'esnext',
-    minify: false,
-    rollupOptions: {
-      output: {
-        format: 'es',
-        manualChunks(id) {
-          // Separate vendor code
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
+// Social crawlers need absolute URLs for og:image.
+function siteUrl(url: string): Plugin {
+  return {
+    name: 'coderoast-site-url',
+    transformIndexHtml: (html) => html.replace(/__SITE_URL__/g, url.replace(/\/$/, '')),
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  return {
+    plugins: [react(), siteUrl(env.VITE_SITE_URL || '.')],
+    // Relative base works on any host or sub-path (GitHub Pages, Vercel, Netlify).
+    base: './',
+    optimizeDeps: {
+      exclude: ['@mlc-ai/web-llm'],
+    },
+    worker: {
+      format: 'es',
+    },
+    build: {
+      target: 'es2022',
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
       },
     },
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-    },
-  },
-  base: './',
-  server: {
-    fs: {
-      allow: ['.'],
-    },
-  },
+  };
 });

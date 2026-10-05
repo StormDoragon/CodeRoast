@@ -1,113 +1,58 @@
-const CACHE_NAME = 'coderoast-v1';
-const WASM_CACHE = 'coderoast-wasm-v1';
-const MODEL_CACHE = 'coderoast-models-v1';
-
-// Files to cache on install
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-];
+// App-shell caching only. Model weights are cached by WebLLM itself, and
+// cross-origin requests (GitHub, Hugging Face) are never intercepted.
+const CACHE = 'coderoast-shell-v2';
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.all(
-        STATIC_ASSETS.map((url) => {
-          return cache.add(url).catch((err) => {
-            console.log(`[SW] Failed to cache ${url}:`, err);
-          });
-        })
-      );
-    })
-  );
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html'])).catch(() => {}));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && !cacheName.includes('-v1')) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('coderoast-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Cache WASM files aggressively (tree-sitter modules)
-  if (url.pathname.endsWith('.wasm')) {
+  // Hashed build assets never change: cache-first.
+  if (url.pathname.includes('/assets/')) {
     event.respondWith(
-      caches.open(WASM_CACHE).then((cache) => {
-        return cache.match(request).then((response) => {
-          if (response) return response;
-          return fetch(request).then((res) => {
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((res) => {
             if (res.ok) {
-              cache.put(request, res.clone());
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(request, copy));
             }
             return res;
-          });
-        });
-      })
+          }),
+      ),
     );
     return;
   }
 
-  // Cache GitHub raw content (user's code fetch)
-  if (url.hostname === 'raw.githubusercontent.com') {
-    event.respondWith(
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.match(request).then((response) => {
-          if (response) return response;
-          return fetch(request).then((res) => {
-            if (res.ok) {
-              cache.put(request, res.clone());
-            }
-            return res;
-          });
-        });
-      })
-    );
-    return;
-  }
-
-  // Network-first for everything else (API calls, assets)
+  // Pages and everything else: network-first, fall back to cache offline.
   event.respondWith(
     fetch(request)
-      .then((response) => {
-        if (response.ok) {
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, response.clone());
-          });
+      .then((res) => {
+        if (res.ok && request.mode === 'navigate') {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put('./index.html', copy));
         }
-        return response;
+        return res;
       })
-      .catch(() => {
-        return caches.match(request).then((response) => {
-          return response || new Response('Offline', { status: 503 });
-        });
-      })
+      .catch(() =>
+        caches.match(request).then((hit) => hit || (request.mode === 'navigate' ? caches.match('./index.html') : undefined)).then(
+          (r) => r || new Response('Offline', { status: 503 }),
+        ),
+      ),
   );
-});
-
-// Message handler for cache clearing from app
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CLEAR_CACHES') {
-    event.waitUntil(
-      caches.keys().then((cacheNames) => {
-        return Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-      }).then(() => {
-        event.ports[0]?.postMessage({ success: true });
-      })
-    );
-  }
 });

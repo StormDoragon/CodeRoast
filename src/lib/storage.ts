@@ -1,61 +1,67 @@
-import { openDB } from 'idb';
+import { openDB, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'coderoast';
-const STORE = 'sessions';
+const DB_VERSION = 3;
+const ROASTS = 'roasts';
+const PREFS = 'preferences';
+const MAX_HISTORY = 25;
 
-export async function getDB() {
-  return openDB(DB_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-      }
-    },
-  });
-}
-
-export interface RoastSession {
+export interface SavedRoast {
   id?: number;
-  code: string;
+  createdAt: number;
   lang: string;
-  model?: string;
-  history: Array<{ question: string; answer: string }>;
+  score: number;
+  title: string;
+  text: string;
+  snippet: string;
 }
 
-export async function saveSession(session: RoastSession) {
-  const db = await getDB();
-  return db.put(STORE, session);
-}
+let dbPromise: Promise<IDBPDatabase> | null = null;
 
-export async function loadSession(id: number) {
-  const db = await getDB();
-  return db.get(STORE, id);
-}
-
-export async function listSessions() {
-  const db = await getDB();
-  return db.getAll(STORE);
-}
-
-// Model preference storage
-const PREFS_STORE = 'preferences';
-
-export async function getPreferencesDB() {
-  return openDB(DB_NAME, 2, {
-    upgrade(db, oldVersion) {
-      if (oldVersion < 2 && !db.objectStoreNames.contains(PREFS_STORE)) {
-        db.createObjectStore(PREFS_STORE, { keyPath: 'key' });
-      }
+function db() {
+  dbPromise ??= openDB(DB_NAME, DB_VERSION, {
+    upgrade(d) {
+      // v1/v2 stored a different shape; start clean.
+      if (d.objectStoreNames.contains('sessions')) d.deleteObjectStore('sessions');
+      if (!d.objectStoreNames.contains(ROASTS)) d.createObjectStore(ROASTS, { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains(PREFS)) d.createObjectStore(PREFS, { keyPath: 'key' });
     },
   });
+  return dbPromise;
 }
 
-export async function getModelPreference(): Promise<string> {
-  const db = await getPreferencesDB();
-  const pref = await db.get(PREFS_STORE, 'selectedModel');
-  return pref?.value || 'Qwen2-1.5B-Instruct-q4f16_1-MLC';
+export async function saveRoast(r: SavedRoast) {
+  const d = await db();
+  await d.add(ROASTS, r);
+  const keys = await d.getAllKeys(ROASTS);
+  for (const k of keys.slice(0, Math.max(0, keys.length - MAX_HISTORY))) await d.delete(ROASTS, k);
 }
 
-export async function setModelPreference(modelName: string) {
-  const db = await getPreferencesDB();
-  return db.put(PREFS_STORE, { key: 'selectedModel', value: modelName });
+export async function listRoasts(): Promise<SavedRoast[]> {
+  const d = await db();
+  return ((await d.getAll(ROASTS)) as SavedRoast[]).reverse();
+}
+
+export async function clearRoasts() {
+  const d = await db();
+  await d.clear(ROASTS);
+}
+
+export async function getPref<T>(key: string, fallback: T): Promise<T> {
+  try {
+    const d = await db();
+    const row = await d.get(PREFS, key);
+    return row ? (row.value as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function setPref<T>(key: string, value: T) {
+  try {
+    const d = await db();
+    await d.put(PREFS, { key, value });
+  } catch {
+    // Private mode / blocked storage: preferences are a convenience only.
+  }
 }

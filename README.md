@@ -1,56 +1,68 @@
 # CodeRoast 🔥🐵
 
-**The only in-browser code roaster that actually understands structure.**  
-Paste code or a GitHub URL → get a savage, hilarious breakdown with real AST insights. Multi-language. Persistent chat. Zero backend.
+**Your code, roasted.** Paste code or a GitHub link and get a brutally funny roast with **line-numbered receipts**, **real fixes**, and a **Banana Score** to brag about.
 
-Built for devs who want the truth, delivered by an angry ape.
+Runs 100% in your browser. No signup, no server, and your code never leaves your device.
 
-## Killer Features
-- Supports **JavaScript, TypeScript, Python, Rust, Go** (more coming)
-- Tree-sitter structural analysis (no more blind LLM guesses)
-- Drop any GitHub file URL — it just works
-- Multi-turn chat with the code in context
-- Streaming roasts + banana score meter
-- Roast history (IndexedDB)
-- Export as PNG meme card
+![CodeRoast](public/og.png)
 
-## Live Demo
-(once deployed — link here)
+## Features
 
-## Quick Start
+- ⚡ **Instant roasts on any device.** A built-in static analyzer (24 rules) plus a joke engine. No download, no GPU, results in milliseconds.
+- 🧠 **AI roasts (optional).** Runs a small code LLM locally via WebGPU ([WebLLM](https://github.com/mlc-ai/web-llm)), grounded in the analyzer's findings.
+- 🧾 **Receipts + fixes.** Every joke points at real lines and tells you how to fix them.
+- 🔗 **Share links** that carry only the roast (never your code), with a challenge page for whoever opens them.
+- 🖼️ **Meme card PNG**, X/LinkedIn sharing, native share sheet.
+- 🍌 **README badge.** Show off your score: [![Banana Score: 9/10](https://img.shields.io/badge/Banana_Score-9%2F10-brightgreen?labelColor=1f2937)](https://github.com/StormDoragon/CodeRoast)
+- 😌 / 🔥 / 💢 **Gentle, Savage, Unhinged** intensity.
+- Languages: JavaScript, TypeScript, Python, Go, Rust, Java/Kotlin (auto-detected).
+- Installable PWA, local roast history.
+
+## Quick start
+
 ```bash
-git clone https://github.com/SarcasticApeSquad/coderoast.git
-cd coderoast
+git clone https://github.com/StormDoragon/CodeRoast.git
+cd CodeRoast
 npm install
 npm run dev
 ```
 
-Open in Chrome/Edge (WebGPU required). First model load ~10–45s, then cached forever.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm test` | Unit tests (vitest) |
+| `npm run typecheck` | TypeScript check |
+| `npm run build` | Typecheck + production build to `dist/` |
 
-**Default model**: Qwen2-1.5B (fast + surprisingly savage on code)
+## Deploy
 
-## Supported Languages
-- JavaScript / TypeScript
-- Python
-- Rust / Go (add more WASM in public/)
+It's a static site, so it can be hosted anywhere.
 
-## Tech (2026 edition)
-- Vite + React + TypeScript + Tailwind
-- web-tree-sitter v0.26.5
-- @mlc-ai/web-llm v0.2.81 (WebGPU)
-- CodeMirror 6
+- **GitHub Pages:** `.github/workflows/deploy.yml` deploys on every push to `main`. Enable it under *Settings → Pages → Source: GitHub Actions*.
+- **Vercel / Netlify / Cloudflare Pages:** build command `npm run build`, output directory `dist`.
 
-## Limitations (honest)
-- First model download is chunky (1.5–3 GB total)
-- WebGPU only (Chrome/Edge best, Safari partial)
-- Small models = occasional dumb roasts (still funnier than most humans)
+Configure with env vars (see `.env.example`): `VITE_SITE_URL` (for share links and preview images), and optionally `VITE_SPONSOR_URL` and `VITE_PRO_WAITLIST_URL`.
+
+## How it works
+
+```
+code ──► analyzer.ts (rules, metrics, score) ──► roastLite.ts (jokes + fixes)   ⚡ instant
+                                    └──────────► worker.ts → WebLLM (local GPU)  🧠 AI
+```
+
+- `src/lib/analyzer.ts`: dependency-free static analysis. Strings and comments are stripped before matching, and the score is 10 minus weighted, capped penalties.
+- `src/lib/roastLite.ts`: seeded templates, so a roast is reproducible and "Roast again" re-rolls.
+- `src/lib/share.ts`: share payloads are base64url JSON in the URL hash, validated on read.
+
+## Roadmap
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the goal, launch plan, and business model.
 
 ## Contributing
-PRs for:
-- Meaner prompts / new roast templates
-- More languages
-- Banana-themed loading animations
-- PWA install button
 
-Made with pure spite and WebGPU by @sarcasticapes  
+PRs welcome, especially:
+- New rules (add to `LINE_RULES` + a template in `roastLite.ts` + a test)
+- Funnier jokes (keep them about the code, never the person)
+- More languages
+
 License: MIT
