@@ -36,12 +36,14 @@ npm run dev
 
 ## Deploy
 
-It's a static site, so it can be hosted anywhere.
+Live at **https://code-roast-five.vercel.app** (Vercel, auto-deploys from `main`; PRs get preview deployments).
 
-- **GitHub Pages:** `.github/workflows/deploy.yml` deploys on every push to `main`. Enable it under *Settings → Pages → Source: GitHub Actions*.
-- **Vercel / Netlify / Cloudflare Pages:** build command `npm run build`, output directory `dist`.
+Any static host works: build command `npm run build`, output directory `dist`. `vercel.json` sets long-lived caching for hashed assets and security headers.
 
 Configure with env vars (see `.env.example`): `VITE_SITE_URL` (for share links and preview images), and optionally `VITE_SPONSOR_URL` and `VITE_PRO_WAITLIST_URL`.
+
+### Analytics
+Uses [Vercel Web Analytics](https://vercel.com/docs/analytics) (cookieless). Enable it in the Vercel project's *Analytics* tab. Funnel events: `roast`, `roast_again`, `example`, `github_load`, `share` (by channel), `share_open`, `share_cta`. The URL hash (which holds shared roast text) is stripped before anything is sent.
 
 ## How it works
 

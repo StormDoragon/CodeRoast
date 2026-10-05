@@ -1,6 +1,7 @@
 import React from 'react';
 import { drawCard, cardToBlob, type CardData } from '../lib/card';
 import { badgeMarkdown } from '../lib/share';
+import { track } from '../lib/analytics';
 
 interface SharePanelProps {
   card: CardData;
@@ -26,6 +27,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
   }, [toast]);
 
   const copy = async (text: string, label: string) => {
+    track('share', { channel: label === 'Link' ? 'link' : 'badge' });
     try {
       await navigator.clipboard.writeText(text);
       setToast(`${label} copied`);
@@ -35,6 +37,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
   };
 
   const download = async () => {
+    track('share', { channel: 'card' });
     if (!canvasRef.current) return;
     const blob = await cardToBlob(canvasRef.current);
     const a = document.createElement('a');
@@ -45,6 +48,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
   };
 
   const nativeShare = async () => {
+    track('share', { channel: 'native' });
     if (!canvasRef.current) return;
     try {
       const file = new File([await cardToBlob(canvasRef.current)], 'coderoast.png', { type: 'image/png' });
@@ -69,10 +73,10 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
             📤 Share
           </button>
         )}
-        <a className={btn} href={xUrl} target="_blank" rel="noopener noreferrer">
+        <a className={btn} href={xUrl} target="_blank" rel="noopener noreferrer" onClick={() => track('share', { channel: 'x' })}>
           𝕏 Post
         </a>
-        <a className={btn} href={liUrl} target="_blank" rel="noopener noreferrer">
+        <a className={btn} href={liUrl} target="_blank" rel="noopener noreferrer" onClick={() => track('share', { channel: 'linkedin' })}>
           in Share
         </a>
         <button className={btn} onClick={() => copy(url, 'Link')}>
