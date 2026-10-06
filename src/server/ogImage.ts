@@ -1,6 +1,6 @@
 // Builds the per-roast social preview image (1200x630) as a Satori element
 // tree. Plain objects instead of JSX keep the Vercel function build simple.
-import type { SharePayload } from '../lib/share';
+import type { BattleFighter, Shared, SharePayload } from '../lib/share';
 
 type El = { type: string; props: Record<string, unknown> & { children?: unknown } };
 
@@ -72,4 +72,53 @@ export function ogTree(p: SharePayload | null, site: string): El {
       ]),
     ],
   );
+}
+
+function fighterColumn(f: BattleFighter, won: boolean) {
+  const color = scoreColor(f.s);
+  return h(
+    'div',
+    {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '28px 24px',
+      background: won ? 'rgba(250,204,21,0.08)' : 'rgba(255,255,255,0.03)',
+      borderTop: `8px solid ${won ? '#facc15' : color}`,
+    },
+    [
+      h('div', { fontSize: 20, fontWeight: 800, color: won ? '#facc15' : 'transparent', letterSpacing: 3 }, 'WINNER'),
+      h('div', { fontSize: 34, fontWeight: 800, color: '#fafafa' }, f.m),
+      h('div', { fontSize: 150, fontWeight: 800, color, lineHeight: 1.05 }, String(f.s)),
+      h('div', { fontSize: 28, color: '#71717a' }, `/ 10 · ${f.t.toUpperCase()}`),
+      h('div', { fontSize: 24, color: '#d4d4d8', marginTop: 22, textAlign: 'center' }, f.r[0] ? `“${clip(f.r[0])}”` : ''),
+    ],
+  );
+}
+
+export function battleTree(shared: Extract<Shared, { kind: 'battle' }>['p'], site: string): El {
+  const host = site.replace(/^https?:\/\//, '');
+  const winner = shared.a.s === shared.b.s ? null : shared.a.s > shared.b.s ? 'a' : 'b';
+  return h(
+    'div',
+    {
+      width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: 48,
+      background: 'linear-gradient(135deg, #0b0b0f, #2a0a0a)', color: '#fafafa',
+    },
+    [
+      h('div', { fontSize: 34, fontWeight: 800, color: '#f87171', marginBottom: 20 }, 'CodeRoast Battle'),
+      h('div', { display: 'flex', flex: 1, gap: 24 }, [
+        fighterColumn(shared.a, winner === 'a'),
+        h('div', { display: 'flex', alignItems: 'center', fontSize: 44, fontWeight: 900, color: '#71717a' }, 'VS'),
+        fighterColumn(shared.b, winner === 'b'),
+      ]),
+      h('div', { fontSize: 24, color: '#a1a1aa', marginTop: 20 }, `${clip(shared.h)} → ${host}`),
+    ],
+  );
+}
+
+// Entry point for /api/og: picks the right card for the payload.
+export function previewTree(shared: Shared | null, site: string): El {
+  return shared?.kind === 'battle' ? battleTree(shared.p, site) : ogTree(shared?.p ?? null, site);
 }

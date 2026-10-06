@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { ImageResponse } from '@vercel/og';
-import { encodeShare } from '../../lib/share';
+import { encodeBattle, encodeShare } from '../../lib/share';
 import { sharePage } from '../sharePage';
-import { ogTree } from '../ogImage';
+import { battleTree, ogTree } from '../ogImage';
 import { GET as ogHandler } from '../../../api/og';
 import shareHandler from '../../../api/share';
 
@@ -68,4 +68,27 @@ describe('api handlers', () => {
     expect(res.headers.get('content-type')).toContain('text/html');
     expect(await res.text()).toContain('https://preview.dev/api/og?d=');
   });
+});
+
+describe('battle shares', () => {
+  const f = (m: string, s: number) => ({ m, s, t: 'Mid', l: 'JS', n: 9, r: ['joke one', 'joke two'] });
+  const enc = encodeBattle({ a: f('Alice', 8), b: f('<b>Bob</b>', 3), h: 'Alice wins by 5 bananas.' });
+
+  it('describes both fighters in the preview tags, escaped', () => {
+    const { status, html } = sharePage(enc, 'https://roast.dev');
+    expect(status).toBe(200);
+    expect(html).toContain('CodeRoast Battle: Alice 8/10 vs &lt;b&gt;Bob&lt;/b&gt; 3/10');
+    expect(html).toContain('Alice wins by 5 bananas.');
+    expect(html).not.toContain('<b>Bob');
+  });
+
+  it('renders a battle preview image', async () => {
+    const res = await ogHandler(new Request(`https://roast.dev/api/og?d=${enc}`));
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.subarray(1, 4).toString()).toBe('PNG');
+    if (process.env.OG_OUT) {
+      const img = new ImageResponse(battleTree({ v: 1, k: 'b', a: f('Alice', 8), b: f('Bob', 3), h: 'Alice wins by 5 bananas.' }, 'https://roast.dev') as never, { width: 1200, height: 630 });
+      writeFileSync(`${process.env.OG_OUT}/og-battle.png`, Buffer.from(await img.arrayBuffer()));
+    }
+  }, 30000);
 });

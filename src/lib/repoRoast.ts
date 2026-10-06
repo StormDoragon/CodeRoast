@@ -99,7 +99,7 @@ export async function fetchRepo(
   const branch = ref.ref ?? (await gh<{ default_branch: string }>(base)).default_branch;
   const tree = await gh<{ tree: TreeEntry[] }>(`${base}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
   const picked = pickFiles(tree.tree, ref.path);
-  if (picked.length === 0) throw new Error('No supported source files found (JS/TS/Python/Go/Rust/Java).');
+  if (picked.length === 0) throw new Error('No supported source files found (JS/TS/Python/Go/Rust/Java/C#/PHP/Ruby/C/C++).');
 
   const files: RepoFile[] = [];
   let next = 0;

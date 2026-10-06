@@ -67,3 +67,54 @@ export function average(values: number[]): number {
     expect(rules(go.code, 'go')).toEqual(expect.arrayContaining(['secret', 'ignoredError', 'deepNesting', 'debugLog', 'todo']));
   });
 });
+
+describe('more languages', () => {
+  const ids = (code: string, lang?: Parameters<typeof analyze>[1]) => analyze(code, lang).findings.map((f) => f.rule);
+
+  it('maps file extensions', () => {
+    expect(langFromPath('a/Program.cs')).toBe('csharp');
+    expect(langFromPath('index.php')).toBe('php');
+    expect(langFromPath('app/models/user.rb')).toBe('ruby');
+    expect(langFromPath('src/main.c')).toBe('c');
+    expect(langFromPath('src/engine.cpp')).toBe('c');
+    expect(langFromPath('include/engine.hpp')).toBe('c');
+  });
+
+  it('detects languages without stealing JS or TS', () => {
+    expect(detectLang('<?php\necho "hi";')).toBe('php');
+    expect(detectLang('#include <stdio.h>\nint main() { return 0; }')).toBe('c');
+    expect(detectLang('using System;\nclass A { }')).toBe('csharp');
+    expect(detectLang('class User < Base\n  def name\n    @name\n  end\nend')).toBe('ruby');
+    expect(detectLang("const $el = $('#app');\n$el.hide();")).toBe('javascript');
+    expect(detectLang('namespace Utils {\n  export const x: number = 1;\n}')).toBe('typescript');
+  });
+
+  it('flags PHP injection, loose equality and @-suppression', () => {
+    const php = `<?php
+$data = $_GET['id'];
+echo "Hello " . $_GET['name'];
+$result = mysql_query("SELECT * FROM users WHERE id = " . $_GET['id']);
+if ($data == 0) { $x = @file_get_contents('x'); }
+var_dump($result);
+`;
+    expect(ids(php, 'php')).toEqual(expect.arrayContaining(['rawInput', 'looseEquality', 'suppression', 'vagueNames', 'debugLog']));
+  });
+
+  it('flags Ruby rescue nil and puts, with indentation-based depth', () => {
+    const rb = 'def load\n  data = File.read("x") rescue nil\n  puts data\nend\n';
+    expect(ids(rb, 'ruby')).toEqual(expect.arrayContaining(['rescueNil', 'debugLog', 'vagueNames']));
+    expect(ids('def a\n  b\nend\n', 'ruby')).not.toContain('rescueNil');
+  });
+
+  it('flags unsafe C and goto, but not printf', () => {
+    const c = '#include <stdio.h>\nint main() {\n  char buf[8];\n  gets(buf);\n  printf("%s", buf);\n  goto done;\ndone:\n  return 0;\n}\n';
+    const found = ids(c, 'c');
+    expect(found).toEqual(expect.arrayContaining(['unsafeC', 'gotoStatement']));
+    expect(found).not.toContain('debugLog');
+  });
+
+  it('flags C# dynamic, empty catch, pragma and Console.WriteLine', () => {
+    const cs = 'using System;\nclass A {\n  void B() {\n    dynamic x = Get();\n    try { Run(); } catch { }\n#pragma warning disable CS0168\n    Console.WriteLine(x);\n  }\n}\n';
+    expect(ids(cs, 'csharp')).toEqual(expect.arrayContaining(['anyType', 'emptyCatch', 'suppression', 'debugLog']));
+  });
+});

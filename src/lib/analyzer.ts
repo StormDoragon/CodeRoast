@@ -2,7 +2,18 @@
 // Runs instantly on any device and produces "receipts" (findings with line
 // numbers) that both the instant roast and the AI roast are built on.
 
-export type Lang = 'javascript' | 'typescript' | 'python' | 'go' | 'rust' | 'java' | 'other';
+export type Lang =
+  | 'javascript'
+  | 'typescript'
+  | 'python'
+  | 'go'
+  | 'rust'
+  | 'java'
+  | 'csharp'
+  | 'php'
+  | 'ruby'
+  | 'c'
+  | 'other';
 
 export type Severity = 'low' | 'medium' | 'high';
 
@@ -53,6 +64,10 @@ export type RuleId =
   | 'globalKeyword'
   | 'unwrap'
   | 'ignoredError'
+  | 'rescueNil'
+  | 'unsafeC'
+  | 'gotoStatement'
+  | 'rawInput'
   | 'tooShort';
 
 const SEVERITY_WEIGHT: Record<Severity, number> = { low: 0.4, medium: 0.9, high: 2.2 };
@@ -62,7 +77,10 @@ const MAX_PENALTY_PER_RULE = 3;
 
 const MAX_LINES_REPORTED = 5;
 
-const C_LIKE: Lang[] = ['javascript', 'typescript', 'go', 'rust', 'java', 'other'];
+const C_LIKE: Lang[] = ['javascript', 'typescript', 'go', 'rust', 'java', 'csharp', 'php', 'c', 'other'];
+// Languages whose blocks are delimited by indentation or `end`, not braces.
+const INDENT_LANGS: Lang[] = ['python', 'ruby'];
+const HASH_COMMENT_LANGS: Lang[] = ['python', 'ruby'];
 const JS_LIKE: Lang[] = ['javascript', 'typescript'];
 
 const EXT_TO_LANG: Record<string, Lang> = {
@@ -78,6 +96,15 @@ const EXT_TO_LANG: Record<string, Lang> = {
   rs: 'rust',
   java: 'java',
   kt: 'java',
+  cs: 'csharp',
+  php: 'php',
+  rb: 'ruby',
+  c: 'c',
+  h: 'c',
+  cc: 'c',
+  cpp: 'c',
+  cxx: 'c',
+  hpp: 'c',
 };
 
 export function langFromPath(path: string): Lang | null {
@@ -86,9 +113,14 @@ export function langFromPath(path: string): Lang | null {
 }
 
 export function detectLang(code: string): Lang {
+  // Ruby before Python: both use `def`, but only Ruby closes blocks with `end`.
+  if (/^\s*(def \w+[?!]?(\(.*\))?|class \w+( < \w+)?|module \w+)\s*$/m.test(code) && /^\s*end\s*$/m.test(code)) return 'ruby';
   if (/^\s*(def |class \w+(\(.*\))?:|import \w+$|from \S+ import )/m.test(code) && !/[{};]\s*$/m.test(code)) {
     return 'python';
   }
+  if (/^\s*<\?php/m.test(code) || /^\s*\$\w+\s*=[^=>].*;\s*$/m.test(code) && /\bfunction\s+\w+\s*\(\s*\$/.test(code)) return 'php';
+  if (/^\s*#include\s*[<"]/m.test(code)) return 'c';
+  if (/^\s*using System|\bConsole\.Write/m.test(code)) return 'csharp';
   if (/^\s*package \w+\s*$/m.test(code) && /\bfunc\b/.test(code)) return 'go';
   if (/\bfn \w+\s*[<(]/.test(code) && /\blet (mut )?\w+/.test(code)) return 'rust';
   if (/\b(public|private) (static )?(class|void|int|String)\b/.test(code)) return 'java';
@@ -104,7 +136,7 @@ interface Line {
 }
 
 function commentPrefix(lang: Lang) {
-  return lang === 'python' ? '#' : '//';
+  return HASH_COMMENT_LANGS.includes(lang) ? '#' : '//';
 }
 
 // Removes string literal contents so rules don't fire on text inside strings.
@@ -118,7 +150,7 @@ function splitLines(code: string, lang: Lang): Line[] {
   return code.split('\n').map((raw, i) => {
     const trimmed = raw.trim();
     let isComment = false;
-    if (lang !== 'python') {
+    if (!HASH_COMMENT_LANGS.includes(lang)) {
       if (inBlock) {
         isComment = true;
         if (trimmed.includes('*/')) inBlock = false;
@@ -141,7 +173,7 @@ function indentWidth(raw: string) {
 }
 
 function computeMaxDepth(lines: Line[], lang: Lang) {
-  if (lang === 'python') {
+  if (INDENT_LANGS.includes(lang)) {
     const widths = lines.filter((l) => l.code.trim()).map((l) => indentWidth(l.raw));
     const nonZero = widths.filter((w) => w > 0);
     if (nonZero.length === 0) return 0;
@@ -170,6 +202,7 @@ interface LineRule {
 }
 
 const VAGUE_NAME = /\b(?:let|const|var|val)\s+(data\d*|temp\d*|tmp\d*|foo|bar|baz|stuff|thing\d*|obj\d*|res\d*|val\d*|x\d+|asdf|lol|test\d*|[a-hm-z])\s*[=:;]/;
+const PHP_VAGUE_NAME = /^\s*\$(data\d*|temp\d*|tmp\d*|foo|bar|baz|stuff|thing\d*|obj\d*|x\d+|asdf|lol|[a-hm-z])\s*=[^=]/;
 const PY_VAGUE_NAME = /^\s*(data\d*|temp\d*|tmp\d*|foo|bar|baz|stuff|thing\d*|obj\d*|x\d+|asdf|lol|[a-hm-z])\s*=[^=]/;
 
 const LINE_RULES: LineRule[] = [
@@ -195,24 +228,40 @@ const LINE_RULES: LineRule[] = [
     test: (l, lang) =>
       lang === 'python'
         ? /^\s*print\s*\(/.test(l.code)
-        : /\bconsole\.(log|debug|dir)\s*\(|\bSystem\.out\.print|\bfmt\.Print(ln|f)?\s*\(|\bprintln!\s*\(|\bdbg!\s*\(/.test(l.code),
+        : lang === 'ruby'
+          ? /^\s*(puts|p|pp|print)\s/.test(l.code)
+          : lang === 'c'
+            ? false // printf is how C programs talk; not a debugging smell on its own
+            : /\bconsole\.(log|debug|dir)\s*\(|\bSystem\.out\.print|\bConsole\.Write(Line)?\s*\(|\b(var_dump|print_r|dd)\s*\(|\bfmt\.Print(ln|f)?\s*\(|\bprintln!\s*\(|\bdbg!\s*\(/.test(l.code),
   },
   { id: 'debugger', severity: 'medium', langs: JS_LIKE, test: (l) => /^\s*debugger\s*;?\s*$/.test(l.code) },
   { id: 'todo', severity: 'low', useRaw: true, test: (l) => /\b(TODO|FIXME|HACK|XXX)\b/.test(l.raw) },
   { id: 'varKeyword', severity: 'medium', langs: JS_LIKE, test: (l) => /(^|[;{(\s])var\s+\w/.test(l.code) },
-  { id: 'looseEquality', severity: 'medium', langs: JS_LIKE, test: (l) => /[^=!<>]==[^=]|!=[^=]/.test(l.code) },
-  { id: 'anyType', severity: 'medium', langs: ['typescript'], test: (l) => /:\s*any\b|\bas any\b|<any>/.test(l.code) },
+  { id: 'looseEquality', severity: 'medium', langs: [...JS_LIKE, 'php'], test: (l) => /[^=!<>]==[^=]|!=[^=]/.test(l.code) },
+  {
+    id: 'anyType',
+    severity: 'medium',
+    langs: ['typescript', 'csharp'],
+    test: (l, lang) => (lang === 'csharp' ? /\bdynamic\s+\w/.test(l.code) : /:\s*any\b|\bas any\b|<any>/.test(l.code)),
+  },
   {
     id: 'suppression',
     severity: 'medium',
     useRaw: true,
-    test: (l) => /@ts-ignore|@ts-nocheck|eslint-disable|#\s*type:\s*ignore|#\s*noqa|@SuppressWarnings|#\[allow\(/.test(l.raw),
+    test: (l, lang) =>
+      /@ts-ignore|@ts-nocheck|eslint-disable|#\s*type:\s*ignore|#\s*noqa|@SuppressWarnings|#\[allow\(|#pragma warning disable|rubocop:disable/.test(l.raw) ||
+      (lang === 'php' && /(^|[=(\s])@\$?\w+/.test(l.code)),
   },
   { id: 'longLines', severity: 'low', useRaw: true, test: (l) => l.raw.length > 120 },
   {
     id: 'vagueNames',
     severity: 'low',
-    test: (l, lang) => (lang === 'python' ? PY_VAGUE_NAME.test(l.code) : VAGUE_NAME.test(l.code)),
+    test: (l, lang) =>
+      INDENT_LANGS.includes(lang)
+        ? PY_VAGUE_NAME.test(l.code)
+        : lang === 'php'
+          ? PHP_VAGUE_NAME.test(l.code)
+          : VAGUE_NAME.test(l.code),
   },
   {
     id: 'commentedCode',
@@ -222,8 +271,8 @@ const LINE_RULES: LineRule[] = [
       if (!l.isComment) return false;
       const body = l.raw.trim().replace(/^(\/\/|#|\/\*|\*)\s?/, '');
       if (/\b(TODO|FIXME|HACK|XXX)\b/.test(body)) return false;
-      return lang === 'python'
-        ? /^(def |return\b|import |from |if .*:$|for .*:$|\w+\s*=\s*\S|\w+\(.*\)$)/.test(body)
+      return HASH_COMMENT_LANGS.includes(lang)
+        ? /^(def |return\b|import |require |from |if .*:?$|for .*:$|\w+\s*=\s*\S|\w+(\.\w+)*\(.*\)$)/.test(body)
         : /(;\s*$|^(const|let|var|return|if|for|while|function)\b.*[;{(]|^\w+(\.\w+)*\(.*\);?$|^}\s*$)/.test(body);
     },
   },
@@ -239,9 +288,25 @@ const LINE_RULES: LineRule[] = [
     severity: 'medium',
     test: (l, lang) => (lang === 'python' ? /^\s*from \S+ import \*/.test(l.code) : /^\s*import .*\.\*;/.test(l.code)),
   },
-  { id: 'globalKeyword', severity: 'medium', langs: ['python'], test: (l) => /^\s*global\s+\w/.test(l.code) },
+  { id: 'globalKeyword', severity: 'medium', langs: ['python', 'php'], test: (l) => /^\s*global\s+\$?\w/.test(l.code) },
   { id: 'unwrap', severity: 'low', langs: ['rust'], test: (l) => /\.unwrap\(\)|\.expect\(/.test(l.code) },
   { id: 'ignoredError', severity: 'medium', langs: ['go'], test: (l) => /(^|,)\s*_\s*(,\s*\w+\s*)?:?=\s*\w/.test(l.code) },
+  {
+    id: 'rescueNil',
+    severity: 'high',
+    langs: ['ruby'],
+    test: (l) => /\brescue\s+nil\b/.test(l.code) || /^\s*rescue\s*(=>\s*\w+)?\s*$/.test(l.code),
+  },
+  { id: 'unsafeC', severity: 'high', langs: ['c'], test: (l) => /\b(gets|strcpy|strcat|sprintf|vsprintf)\s*\(/.test(l.code) },
+  { id: 'gotoStatement', severity: 'medium', langs: ['c', 'csharp', 'php'], test: (l) => /^\s*goto\s+\w+\s*;/.test(l.code) },
+  {
+    id: 'rawInput',
+    severity: 'high',
+    langs: ['php'],
+    // Request data dropped straight into output or a query: XSS / SQL injection.
+    test: (l) =>
+      /\$_(GET|POST|REQUEST|COOKIE)\[/.test(l.code) && /\b(echo|print|mysql_query|mysqli_query|query|exec|system)\b/.test(l.code),
+  },
 ];
 
 export function analyze(code: string, langHint?: Lang): Analysis {
