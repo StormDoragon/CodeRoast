@@ -69,6 +69,8 @@ const T: Record<RuleId, Template> = {
       '{n} debug print{s} left behind. Your debugger is "print and pray".',
       'So many log statements, your console needs a therapist.',
       'Shipping {n} console log{s} to prod is a cry for help, and the logs are the cries.',
+      'Your observability strategy is printing things and squinting.',
+      'I see {n} debug print{s}. The logs are just you talking to yourself at this point.',
     ],
     fix: 'Remove debug output or route it through a real logger with levels.',
   },
@@ -84,6 +86,8 @@ const T: Record<RuleId, Template> = {
       '{n} TODO{s}. Your codebase has more unfinished business than a ghost.',
       'TODO count: {n}. Estimated completion date: heat death of the universe.',
       'These TODOs have seen things. They have outlived sprints, managers, and maybe you.',
+      '{n} TODO{s}. This file is less code, more a to-do list with syntax highlighting.',
+      'A TODO is a promise. You have {n} broken promise{s} in one file.',
     ],
     fix: 'Turn TODOs into tracked issues, or just do them. They are not decorations.',
   },
@@ -97,7 +101,7 @@ const T: Record<RuleId, Template> = {
   },
   looseEquality: {
     jokes: [
-      '{n} loose equality check{s}. Bold of you to trust JavaScript type coercion.',
+      '{n} loose equality check{s}. Bold of you to trust type coercion with your life.',
       'Using `==` means "0" == 0 == false == []. Sleep well.',
       '`==` is just `===` with commitment issues.',
     ],
@@ -124,6 +128,8 @@ const T: Record<RuleId, Template> = {
       'Nesting depth {d}. I needed a rope and a headlamp to get to the bottom of this.',
       '{d} levels deep. This isn\'t code, it\'s Inception.',
       'The indentation is so deep it\'s registered as a geological feature.',
+      'Nesting depth {d}. The right margin has filed a missing-persons report.',
+      'This code goes so deep, the last `}` has never seen daylight.',
     ],
     fix: 'Use early returns, guard clauses and extract helper functions to flatten the logic.',
   },
@@ -131,6 +137,7 @@ const T: Record<RuleId, Template> = {
     jokes: [
       '{n} line{s} over 120 characters. Was this written on an ultrawide monitor turned sideways?',
       'Some of these lines need a passport to cross the screen.',
+      '{n} line{s} so long they have their own weather at the far end.',
       'Horizontal scrolling is not a lifestyle.',
     ],
     fix: 'Break long expressions up and let a formatter (Prettier, Black, gofmt) handle the rest.',
@@ -148,6 +155,7 @@ const T: Record<RuleId, Template> = {
       '{n} variable{s} named like a cat walked across the keyboard. `data`, `temp`, `x`… poetry.',
       'Naming things is hard, but you didn\'t even try.',
       'Your variable names are so vague they could be horoscopes.',
+      '`data`, `temp`, `x`… Your variables are in witness protection.',
     ],
     fix: 'Name variables after what they hold: `userEmails`, not `data`.',
   },
@@ -171,6 +179,7 @@ const T: Record<RuleId, Template> = {
       'Same lines copy-pasted {n} time{s} over. Ctrl+C, Ctrl+V, Ctrl+Regret.',
       'DRY? This code is soaking wet.',
       'The copy-paste here is so strong it should pay rent.',
+      'Same code, {n} location{s}. When one breaks, the rest will follow, like a boy band.',
     ],
     fix: 'Extract the repeated logic into a function or loop.',
   },
@@ -208,6 +217,37 @@ const T: Record<RuleId, Template> = {
       '{n} ignored error{s}. `_` is not error handling, it\'s a blindfold.',
     ],
     fix: 'Handle `err` explicitly: `if err != nil { return fmt.Errorf("context: %w", err) }`.',
+  },
+  rescueNil: {
+    jokes: [
+      '`rescue nil`: when something explodes, just pretend it never happened. Very Zen. Very broken.',
+      '{n} bare rescue{s}. Your error handling is a trapdoor into silence.',
+      'Rescuing everything and returning nil is how bugs get witness protection.',
+    ],
+    fix: 'Rescue specific exceptions (e.g. `rescue ActiveRecord::RecordNotFound => e`) and log or re-raise.',
+  },
+  unsafeC: {
+    jokes: [
+      '`gets`/`strcpy` spotted. This is how buffer overflows get their start in show business.',
+      '{n} unbounded string call{s}. Somewhere, an exploit writer just smiled.',
+      'Using `sprintf` without bounds is a love letter to the CVE database.',
+    ],
+    fix: 'Use bounded versions (`fgets`, `snprintf`, `strncpy`/`strlcpy`) and always pass the buffer size.',
+  },
+  gotoStatement: {
+    jokes: [
+      '`goto` spotted. Dijkstra is spinning in his grave fast enough to power a data center.',
+      '{n} goto{s}. Your control flow is a choose-your-own-adventure book with missing pages.',
+    ],
+    fix: 'Restructure with loops, early returns, or a cleanup function.',
+  },
+  rawInput: {
+    jokes: [
+      'Request input going straight into output or a query. Bobby Tables says hi.',
+      '{n} line{s} where user input walks right in unescaped. That\'s not an API, it\'s an open door.',
+      'Echoing `$_GET` directly: the XSS starter kit, now with free shipping.',
+    ],
+    fix: 'Escape output (`htmlspecialchars`) and use prepared statements (PDO/mysqli with bound parameters).',
   },
   tooShort: {
     jokes: [

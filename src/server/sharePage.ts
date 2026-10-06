@@ -1,6 +1,6 @@
 // HTML served at /r/<payload>: preview tags for social crawlers (which never
 // see URL hashes) and an instant client-side hop into the app for humans.
-import { decodeShare } from '../lib/share.js';
+import { decodeAny, type Shared } from '../lib/share.js';
 
 const ENCODED = /^[A-Za-z0-9_-]{1,4000}$/;
 
@@ -8,13 +8,30 @@ export function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
+function describe(shared: Shared) {
+  if (shared.kind === 'battle') {
+    const { a, b, h } = shared.p;
+    return {
+      title: `CodeRoast Battle: ${a.m} ${a.s}/10 vs ${b.m} ${b.s}/10`,
+      description: `${h || 'Two snippets entered, one ape judged.'} Start your own roast battle.`,
+    };
+  }
+  const p = shared.p;
+  return {
+    title: `CodeRoast: ${p.s}/10, “${p.t}”`,
+    description: `${p.r[0] ?? 'This code got roasted.'} Think your code can beat ${p.s}/10?`,
+  };
+}
+
 export function sharePage(encoded: string, origin: string): { status: number; html: string } {
-  const valid = ENCODED.test(encoded) ? decodeShare(encoded) : null;
+  const valid = ENCODED.test(encoded) ? decodeAny(encoded) : null;
   const target = valid ? `/#r=${encoded}` : '/';
-  const title = valid ? `CodeRoast: ${valid.s}/10, “${valid.t}”` : 'CodeRoast: get your code roasted';
-  const description = valid
-    ? `${valid.r[0] ?? 'This code got roasted.'} Think your code can beat ${valid.s}/10?`
-    : 'Brutally funny code roasts with receipts, fixes, and a Banana Score.';
+  const { title, description } = valid
+    ? describe(valid)
+    : {
+        title: 'CodeRoast: get your code roasted',
+        description: 'Brutally funny code roasts with receipts, fixes, and a Banana Score.',
+      };
   const image = valid ? `${origin}/api/og?d=${encoded}` : `${origin}/og.png`;
   const url = valid ? `${origin}/r/${encoded}` : origin;
 
