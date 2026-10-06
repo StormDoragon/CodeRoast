@@ -351,7 +351,10 @@ export function analyze(code: string, langHint?: Lang): Analysis {
 
   const seen = new Map<string, number[]>();
   for (const l of lines) {
-    const t = l.code.trim();
+    // Compare the raw text: with string contents stripped, every row of a
+    // data table ({ value: '…', label: '…' }) would look identical.
+    if (l.isComment) continue;
+    const t = l.raw.trim();
     if (t.length < 25) continue;
     seen.set(t, [...(seen.get(t) ?? []), l.n]);
   }

@@ -118,3 +118,20 @@ var_dump($result);
     expect(ids(cs, 'csharp')).toEqual(expect.arrayContaining(['anyType', 'emptyCatch', 'suppression', 'debugLog']));
   });
 });
+
+describe('duplicate lines', () => {
+  it('does not treat rows of a data table as copy-paste', () => {
+    const table = `export const LANGS = [
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'python', label: 'Python' },
+  { value: 'go', label: 'Go' },
+];`;
+    expect(analyze(table, 'typescript').findings.map((f) => f.rule)).not.toContain('duplicateLines');
+  });
+
+  it('still catches real copy-paste', () => {
+    const dup = Array.from({ length: 3 }, () => '  total = total + computeTax(order.items, order.region);').join('\n');
+    expect(analyze(`let total = 0;\n${dup}\nexport { total };`, 'javascript').findings.map((f) => f.rule)).toContain('duplicateLines');
+  });
+});

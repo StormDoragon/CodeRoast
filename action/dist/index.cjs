@@ -225,7 +225,8 @@ function analyze(code, langHint) {
   }
   const seen = /* @__PURE__ */ new Map();
   for (const l of lines) {
-    const t = l.code.trim();
+    if (l.isComment) continue;
+    const t = l.raw.trim();
     if (t.length < 25) continue;
     seen.set(t, [...seen.get(t) ?? [], l.n]);
   }
