@@ -52,14 +52,18 @@ function detectLang(code) {
   if (/:\s*(string|number|boolean|any)\b|\binterface \w+\s*\{|\btype \w+\s*=/.test(code)) return "typescript";
   return "javascript";
 }
-function commentPrefix(lang) {
-  return HASH_COMMENT_LANGS.includes(lang) ? "#" : "//";
+function lineCommentStart(code, lang) {
+  if (HASH_COMMENT_LANGS.includes(lang)) return code.indexOf("#");
+  const slash = code.indexOf("//");
+  if (lang !== "php") return slash;
+  const hash = code.search(/#(?!\[)/);
+  if (slash < 0) return hash;
+  return hash < 0 ? slash : Math.min(slash, hash);
 }
 function stripStrings(s) {
   return s.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, (m) => m[0] + m[0]);
 }
 function splitLines(code, lang) {
-  const prefix = commentPrefix(lang);
   let inBlock = false;
   return code.split("\n").map((raw, i) => {
     const trimmed = raw.trim();
@@ -73,9 +77,9 @@ function splitLines(code, lang) {
         inBlock = !trimmed.includes("*/");
       }
     }
-    if (trimmed.startsWith(prefix)) isComment = true;
+    if (lineCommentStart(trimmed, lang) === 0) isComment = true;
     let stripped = stripStrings(raw);
-    const idx = stripped.indexOf(prefix);
+    const idx = lineCommentStart(stripped, lang);
     if (idx >= 0) stripped = stripped.slice(0, idx);
     return { n: i + 1, raw, code: isComment ? "" : stripped, isComment };
   });

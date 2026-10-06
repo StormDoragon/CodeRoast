@@ -53,6 +53,7 @@ export interface BattlePayload {
   a: BattleFighter;
   b: BattleFighter;
   h: string; // headline, e.g. "Alice wins by 3 bananas…"
+  w: 'a' | 'b' | 't'; // winner as battle() decided it (ties can be broken on sins)
 }
 
 export type Shared = { kind: 'roast'; p: SharePayload } | { kind: 'battle'; p: BattlePayload };
@@ -103,7 +104,10 @@ export function decodeBattle(encoded: string): BattlePayload | null {
   if (!p || p.v !== 1 || p.k !== 'b') return null;
   const a = fighter(p.a);
   const b = fighter(p.b);
-  return a && b ? { v: 1, k: 'b', a, b, h: String(p.h ?? '').slice(0, MAX_LINE_LEN) } : null;
+  if (!a || !b) return null;
+  // Links made before `w` existed: fall back to comparing scores.
+  const w = p.w === 'a' || p.w === 'b' || p.w === 't' ? p.w : a.s === b.s ? 't' : a.s > b.s ? 'a' : 'b';
+  return { v: 1, k: 'b', a, b, h: String(p.h ?? '').slice(0, MAX_LINE_LEN), w };
 }
 
 export function decodeAny(encoded: string): Shared | null {
@@ -119,7 +123,7 @@ export function encodeBattle(p: Omit<BattlePayload, 'v' | 'k'>): string {
     m: f.m.slice(0, MAX_NAME_LEN),
     r: f.r.slice(0, MAX_BATTLE_LINES).map((x) => x.slice(0, MAX_LINE_LEN)),
   });
-  const payload: BattlePayload = { v: 1, k: 'b', a: trim(p.a), b: trim(p.b), h: p.h.slice(0, MAX_LINE_LEN) };
+  const payload: BattlePayload = { v: 1, k: 'b', a: trim(p.a), b: trim(p.b), h: p.h.slice(0, MAX_LINE_LEN), w: p.w };
   return toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
 }
 

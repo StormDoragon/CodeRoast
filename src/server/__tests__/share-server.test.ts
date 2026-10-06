@@ -72,7 +72,7 @@ describe('api handlers', () => {
 
 describe('battle shares', () => {
   const f = (m: string, s: number) => ({ m, s, t: 'Mid', l: 'JS', n: 9, r: ['joke one', 'joke two'] });
-  const enc = encodeBattle({ a: f('Alice', 8), b: f('<b>Bob</b>', 3), h: 'Alice wins by 5 bananas.' });
+  const enc = encodeBattle({ a: f('Alice', 8), b: f('<b>Bob</b>', 3), h: 'Alice wins by 5 bananas.', w: 'a' });
 
   it('describes both fighters in the preview tags, escaped', () => {
     const { status, html } = sharePage(enc, 'https://roast.dev');
@@ -87,7 +87,7 @@ describe('battle shares', () => {
     const buf = Buffer.from(await res.arrayBuffer());
     expect(buf.subarray(1, 4).toString()).toBe('PNG');
     if (process.env.OG_OUT) {
-      const img = new ImageResponse(battleTree({ v: 1, k: 'b', a: f('Alice', 8), b: f('Bob', 3), h: 'Alice wins by 5 bananas.' }, 'https://roast.dev') as never, { width: 1200, height: 630 });
+      const img = new ImageResponse(battleTree({ v: 1, k: 'b', a: f('Alice', 8), b: f('Bob', 3), h: 'Alice wins by 5 bananas.', w: 'a' }, 'https://roast.dev') as never, { width: 1200, height: 630 });
       writeFileSync(`${process.env.OG_OUT}/og-battle.png`, Buffer.from(await img.arrayBuffer()));
     }
   }, 30000);

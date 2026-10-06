@@ -59,7 +59,7 @@ describe('battles', () => {
 
   it('round-trips battle payloads and keeps the two formats apart', () => {
     const f = (m: string, s: number) => ({ m, s, t: 'x', l: 'JS', n: 3, r: ['a', 'b', 'c', 'd'] });
-    const enc = encodeBattle({ a: f('Alice', 7), b: f('Bob', 3), h: 'Alice wins' });
+    const enc = encodeBattle({ a: f('Alice', 7), b: f('Bob', 3), h: 'Alice wins', w: 'a' });
     const d = decodeBattle(enc)!;
     expect(d.a.m).toBe('Alice');
     expect(d.a.r).toHaveLength(3);
@@ -67,5 +67,30 @@ describe('battles', () => {
     expect(decodeAny(enc)?.kind).toBe('battle');
     expect(decodeAny(encodeShare({ s: 5, t: 'Mid', l: 'JS', n: 1, r: ['x'] }))?.kind).toBe('roast');
     expect(decodeBattle(btoa(JSON.stringify({ v: 1, k: 'b', a: f('A', 99), b: f('B', 1), h: '' })))).toBeNull();
+  });
+});
+
+describe('battle tie-breaks', () => {
+  it('carries a tie-break winner through the share payload', async () => {
+    const { shareForBattle } = await import('../result');
+    // Same rounded score (9/10), different sin counts: 2 debug prints vs 3.
+    const logs = (n: number) => Array.from({ length: n }, (_, i) => `  console.log(${i});`).join('\n');
+    const c1 = `export function a(): number {\n${logs(2)}\n  return 1;\n}\n`;
+    const c2 = `export function b(): number {\n${logs(3)}\n  return 2;\n}\n`;
+    const r = battle({ name: 'One', code: c1 }, { name: 'Two', code: c2 });
+    expect(r.a.analysis.score).toBe(r.b.analysis.score);
+    expect(r.winner).toBe('a');
+    const s = shareForBattle(r, 'https://x.dev');
+    const encoded = s.url.split('/r/')[1];
+    expect(decodeBattle(encoded)!.w).toBe('a');
+    expect(s.card.kind === 'battle' && s.card.winner).toBe('a');
+  });
+
+  it('falls back to comparing scores for links made before w existed', () => {
+    const f = (m: string, s: number) => ({ m, s, t: 'x', l: 'JS', n: 3, r: ['a'] });
+    const legacy = btoa(JSON.stringify({ v: 1, k: 'b', a: f('A', 4), b: f('B', 7), h: '' }));
+    expect(decodeBattle(legacy)!.w).toBe('b');
+    const bogus = btoa(JSON.stringify({ v: 1, k: 'b', a: f('A', 4), b: f('B', 4), h: '', w: 'zzz' }));
+    expect(decodeBattle(bogus)!.w).toBe('t');
   });
 });

@@ -135,8 +135,15 @@ interface Line {
   isComment: boolean;
 }
 
-function commentPrefix(lang: Lang) {
-  return HASH_COMMENT_LANGS.includes(lang) ? '#' : '//';
+// Index where a line comment starts in (string-stripped) code, or -1.
+// PHP accepts both `//` and `#`, but `#[...]` is a PHP 8 attribute, not a comment.
+function lineCommentStart(code: string, lang: Lang) {
+  if (HASH_COMMENT_LANGS.includes(lang)) return code.indexOf('#');
+  const slash = code.indexOf('//');
+  if (lang !== 'php') return slash;
+  const hash = code.search(/#(?!\[)/);
+  if (slash < 0) return hash;
+  return hash < 0 ? slash : Math.min(slash, hash);
 }
 
 // Removes string literal contents so rules don't fire on text inside strings.
@@ -145,7 +152,6 @@ function stripStrings(s: string) {
 }
 
 function splitLines(code: string, lang: Lang): Line[] {
-  const prefix = commentPrefix(lang);
   let inBlock = false;
   return code.split('\n').map((raw, i) => {
     const trimmed = raw.trim();
@@ -159,9 +165,9 @@ function splitLines(code: string, lang: Lang): Line[] {
         inBlock = !trimmed.includes('*/');
       }
     }
-    if (trimmed.startsWith(prefix)) isComment = true;
+    if (lineCommentStart(trimmed, lang) === 0) isComment = true;
     let stripped = stripStrings(raw);
-    const idx = stripped.indexOf(prefix);
+    const idx = lineCommentStart(stripped, lang);
     if (idx >= 0) stripped = stripped.slice(0, idx);
     return { n: i + 1, raw, code: isComment ? '' : stripped, isComment };
   });

@@ -135,3 +135,17 @@ describe('duplicate lines', () => {
     expect(analyze(`let total = 0;\n${dup}\nexport { total };`, 'javascript').findings.map((f) => f.rule)).toContain('duplicateLines');
   });
 });
+
+describe('PHP comments', () => {
+  it('treats # lines as comments but keeps #[Attributes] as code', () => {
+    const php = "<?php\n# echo $_GET['name'];\n# var_dump($data);\n#[Route('/x')]\nfunction show() { return 1; }\n";
+    const found = analyze(php, 'php').findings.map((f) => f.rule);
+    expect(found).not.toContain('rawInput');
+    expect(found).not.toContain('debugLog');
+  });
+
+  it('ignores trailing # comments on code lines', () => {
+    const php = "<?php\n$name = 'x'; # echo $_GET['name'];\nfunction f() { return 1; }\n";
+    expect(analyze(php, 'php').findings.map((f) => f.rule)).not.toContain('rawInput');
+  });
+});

@@ -24,8 +24,7 @@ const Fighter: React.FC<{ f: BattleFighter; won: boolean }> = ({ f, won }) => (
 // What someone sees when they open a share link.
 export const SharedView: React.FC<{ shared: Shared; onCta: () => void }> = ({ shared, onCta }) => {
   if (shared.kind === 'battle') {
-    const { a, b, h } = shared.p;
-    const winner = a.s === b.s ? null : a.s > b.s ? 'a' : 'b';
+    const { a, b, h, w: winner } = shared.p;
     return (
       <section className={frame}>
         <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-red-400">⚔️ A roast battle happened</p>

@@ -112,6 +112,7 @@ export interface BattleCardData {
   a: { m: string; s: number; t: string; r: string[] };
   b: { m: string; s: number; t: string; r: string[] };
   headline: string;
+  winner: 'a' | 'b' | 't';
   site: string;
 }
 
@@ -132,7 +133,7 @@ export function drawBattleCard(canvas: HTMLCanvasElement, d: BattleCardData) {
   ctx.font = font(32, 800);
   ctx.fillText('⚔️ CodeRoast Battle', 56, 84);
 
-  const winner = d.a.s === d.b.s ? null : d.a.s > d.b.s ? 'a' : 'b';
+  const winner = d.winner;
   const colW = (W - 56 * 2 - 80) / 2;
   const sides: Array<[BattleCardData['a'], number, boolean]> = [
     [d.a, 56, winner === 'a'],

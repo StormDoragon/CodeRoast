@@ -99,7 +99,7 @@ function fighterColumn(f: BattleFighter, won: boolean) {
 
 export function battleTree(shared: Extract<Shared, { kind: 'battle' }>['p'], site: string): El {
   const host = site.replace(/^https?:\/\//, '');
-  const winner = shared.a.s === shared.b.s ? null : shared.a.s > shared.b.s ? 'a' : 'b';
+  const winner = shared.w;
   return h(
     'div',
     {

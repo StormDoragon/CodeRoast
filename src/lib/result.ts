@@ -63,10 +63,11 @@ export function shareForBattle(b: BattleResult, site: string): ShareBundle {
   });
   const a = side(b.a);
   const bb = side(b.b);
-  const encoded = encodeBattle({ a, b: bb, h: b.headline });
+  const w = b.winner === 'tie' ? 't' : b.winner;
+  const encoded = encodeBattle({ a, b: bb, h: b.headline, w });
   return {
     url: shareUrl(site, encoded),
     tweet: `⚔️ CodeRoast battle: ${a.m} (${a.s}/10) vs ${bb.m} (${bb.s}/10). ${b.headline}`,
-    card: { kind: 'battle', a, b: bb, headline: b.headline, site },
+    card: { kind: 'battle', a, b: bb, headline: b.headline, winner: w, site },
   };
 }
