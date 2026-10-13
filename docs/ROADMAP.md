@@ -18,7 +18,7 @@ North-star metric: **share links opened per day.** Every opened link is a new pe
 ## Why it can win
 
 1. **Zero friction.** No signup, no download, no server. The instant engine roasts in under 50 ms on any phone.
-2. **Private by design.** Code never leaves the browser, so devs can paste work code. That is the #1 objection to "AI code review" sites.
+2. **Private by design, with clear data paths.** Pasted snippets are analyzed in the browser and are not uploaded to CodeRoast. Public GitHub file/repo mode fetches public source from GitHub, while the PR Action reads files through GitHub on the user's runner. Roast history is stored in local browser storage until cleared. Share links encode roast output and metadata, not editor contents; generated text can quote snippets or identifiers, so review it before sharing.
 3. **Funny *and* useful.** Every joke cites line numbers and comes with a real fix. People share the funny part and come back for the useful part.
 4. **Built-in viral loops:**
    - Share link → opens a roast card → "Think you can beat X/10?" → visitor roasts their own code → shares.
@@ -31,9 +31,9 @@ North-star metric: **share links opened per day.** Every opened link is a new pe
 Done in this pass, and why each item mattered:
 
 - [x] **Fixed broken production build.** The AI worker was never bundled and was recreated on every keystroke, which re-downloaded the model.
-- [x] **Instant engine.** A deterministic analyzer covering 24 rules across JS/TS/Python/Go/Rust/Java, plus a joke generator with receipts and fixes. Works on every device, with no WebGPU and no download.
+- [x] **Instant engine.** A deterministic analyzer covering 28 rules across 10 language families, plus a joke generator with receipts and fixes. Works without WebGPU or a model download.
 - [x] **AI engine (optional).** Local WebLLM with valid model IDs (Qwen2.5-Coder, Llama 3.2), a download progress bar, and a prompt grounded in the analyzer's receipts.
-- [x] **Share links** (roast only, never code) with a dedicated shared-roast landing view and challenge CTA.
+- [x] **Share links** with a dedicated shared-roast landing view and challenge CTA. Links encode roast output and metadata, not editor contents; generated text can quote snippets or identifiers.
 - [x] Meme card PNG (1200×630), X/LinkedIn share, native share sheet, README badge.
 - [x] One-click example "crimes" so first-time visitors get a laugh in one click.
 - [x] Local roast history, fixed IndexedDB version bug.
@@ -70,7 +70,7 @@ Launch kit with ready-to-post copy, timeline and assets: [docs/launch/README.md]
 
 ### Phase 3: Go viral (month 1–2)
 - [x] **A preview image for every share link.** Share links are now `/r/<payload>`. A Vercel edge function serves preview tags to crawlers and sends visitors into the app, and `/api/og` renders a 1200×630 image showing that roast's score, verdict and jokes. Old `#r=` links still work.
-- [x] **Roast a whole repo.** Paste `github.com/owner/repo` (or a `/tree/branch/path` URL) to roast up to 30 of the largest source files. You get a line-weighted repo score, a "crime scene" list of the worst files with links, and aggregated jokes. Repo roasts are shareable.
+- [x] **Roast a whole repo.** Paste `github.com/owner/repo` (or a `/tree/branch/path` URL) to roast up to 30 of the largest eligible source files. Results disclose the actual sample size. A truncated GitHub tree is rejected instead of scored as a complete repo. Repo roasts are shareable.
 - [x] **Roast battles:** shipped in Phase 5.
 - [ ] **Hall of Shame / Fame:** an opt-in public leaderboard. This needs storage (e.g. Vercel KV / Upstash) and moderation.
 - [x] More languages (C#, PHP, Ruby, C/C++) and a bigger joke pool: shipped in Phase 5. Swift and SQL are still open.
@@ -127,6 +127,8 @@ Make every visit more replayable and the audience bigger, still with no backend.
 - [x] **Bigger joke pool** for the most common rules, so "Roast again" repeats less.
 - [x] **"Bad roast? Tell the ape"**: a prefilled GitHub issue with rule names and line numbers, never code. False positives become test cases.
 - [x] **Fixed what our own Action flagged:** split the 600-line `App.tsx` into focused components and a `useAiWorker` hook.
+- [x] **Repository input safeguards:** reject truncated trees, support percent-encoded slash branches, and show eligible-versus-read file counts.
+- [x] **Accuracy fixtures:** add hand-labeled positive and clean examples for all ten supported language families. These catch regressions but do not establish real-world classification precision.
 - [ ] **Hall of Shame / Fame:** needs storage (Vercel KV / Upstash) and moderation. Do it once traffic justifies it.
 - [ ] **i18n of jokes** (ES, PT-BR, DE, JA, HI).
 - [ ] Swift, Kotlin-specific and SQL rules.

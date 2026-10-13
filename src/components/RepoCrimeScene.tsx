@@ -11,7 +11,7 @@ export const RepoCrimeScene: React.FC<{ repo: RepoAnalysis; headline: string }> 
       <p className="text-zinc-100">{headline}</p>
       <div className="rounded-lg border border-zinc-800">
         <div className="border-b border-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-          Crime scene: worst files
+          Crime scene: worst files · roasted {repo.sampledFiles} of {repo.eligibleFiles} eligible source files
         </div>
         <ol className="divide-y divide-zinc-800/70">
           {repo.files.slice(0, SHOWN).map((f) => (

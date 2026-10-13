@@ -1,5 +1,5 @@
-// Share links carry the roast (never the code) in the URL hash, so sharing
-// needs no backend and nothing leaves the browser until the user shares.
+// Share links encode roast output and metadata in the URL. They do not include
+// editor contents, but generated roast text can quote snippets or identifiers.
 
 export interface SharePayload {
   v: 1;

@@ -13,8 +13,16 @@ describe('changedLines', () => {
 });
 
 type Call = { method: string; url: string; body?: string };
+type PrFileFixture = { filename: string; status: string; changes: number; patch?: string };
 
-function harness(opts: { comments?: { id: number; body: string }[][]; failComment?: boolean; inputs?: Record<string, string>; event?: unknown } = {}) {
+function harness(opts: {
+  comments?: { id: number; body: string }[][];
+  failComment?: boolean;
+  inputs?: Record<string, string>;
+  event?: unknown;
+  repository?: string;
+  prFiles?: PrFileFixture[];
+} = {}) {
   const calls: Call[] = [];
   const written: Record<string, string> = {};
   const logs: string[] = [];
@@ -24,7 +32,7 @@ function harness(opts: { comments?: { id: number; body: string }[][]; failCommen
   };
   const envVars: Record<string, string> = {
     GITHUB_EVENT_PATH: '/event.json',
-    GITHUB_REPOSITORY: 'acme/app',
+    GITHUB_REPOSITORY: opts.repository ?? 'acme/app',
     GITHUB_STEP_SUMMARY: '/summary.md',
     GITHUB_OUTPUT: '/output.txt',
     'INPUT_GITHUB-TOKEN': 't0ken',
@@ -41,6 +49,10 @@ function harness(opts: { comments?: { id: number; body: string }[][]; failCommen
     calls.push({ method, url, body: init.body as string | undefined });
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer t0ken');
     if (url.includes('/pulls/7/files')) {
+      if (opts.prFiles) {
+        const page = Number(new URL(url).searchParams.get('page') ?? '1');
+        return Response.json(opts.prFiles.slice((page - 1) * 100, page * 100));
+      }
       return Response.json([
         { filename: 'src/bad.js', status: 'modified', changes: 30, patch: '@@ -0,0 +1,3 @@\n+var apiKey = "x";\n+\n+function getData(x) {' },
         { filename: 'lib/pad.js', status: 'added', changes: 10, patch: '@@ -0,0 +1,2 @@\n+a\n+b' },
@@ -52,6 +64,7 @@ function harness(opts: { comments?: { id: number; body: string }[][]; failCommen
     }
     if (url.includes('/contents/src/bad.js?ref=abc123')) return new Response(EXAMPLES[0].code);
     if (url.includes('/contents/lib/pad.js?ref=abc123')) return new Response(EXAMPLES[3].code);
+    if (url.includes('/contents/')) return new Response(EXAMPLES[3].code);
     const commentsPage = url.match(/\/issues\/7\/comments\?per_page=100&page=(\d+)$/);
     if (commentsPage) return Response.json(opts.comments?.[Number(commentsPage[1]) - 1] ?? []);
     if (opts.failComment && method !== 'GET') return new Response('forbidden', { status: 403 });
@@ -85,6 +98,31 @@ describe('run', () => {
     expect(h.written['/output.txt']).toMatch(/^score=\d+\nverdict=.+\n$/);
   });
 
+  it('works in another public repository namespace', async () => {
+    const h = harness({ repository: 'community/sample-app' });
+    const r = await run(h.env, h.io, h.fetchImpl);
+    expect(r.score).not.toBeNull();
+    expect(h.calls.some((c) => c.url.includes('/repos/community/sample-app/'))).toBe(true);
+    expect(h.calls.some((c) => c.url.includes('/repos/acme/app/'))).toBe(false);
+  });
+
+  it('paginates large PRs before choosing the most-changed files', async () => {
+    const prFiles: PrFileFixture[] = Array.from({ length: 300 }, (_, i) => ({
+      filename: `src/file-${i}.js`,
+      status: 'modified',
+      changes: i + 1,
+    }));
+    prFiles.push({ filename: 'src/late-high-change.js', status: 'modified', changes: 1000 });
+    const h = harness({ prFiles, inputs: { 'max-files': '5', comment: 'false' } });
+    const r = await run(h.env, h.io, h.fetchImpl);
+    const pages = h.calls.filter((c) => c.url.includes('/pulls/7/files')).map((c) => new URL(c.url).searchParams.get('page'));
+    const contents = h.calls.filter((c) => c.url.includes('/contents/')).map((c) => c.url);
+    expect(r.score).not.toBeNull();
+    expect(pages).toEqual(['1', '2', '3', '4']);
+    expect(contents).toHaveLength(5);
+    expect(contents[0]).toContain('/contents/src/late-high-change.js?ref=abc123');
+  });
+
   it('updates its previous comment instead of posting a new one', async () => {
     const h = harness({ comments: [[{ id: 99, body: `old\n${MARKER}` }]] });
     await run(h.env, h.io, h.fetchImpl);
@@ -115,6 +153,13 @@ describe('run', () => {
     expect(r.failed).toBe(true);
     expect(r.message).toMatch(/below the fail-below threshold of 9/);
     expect(h.calls.some((c) => c.url.includes('/issues/'))).toBe(false);
+  });
+
+  it('does not fail when the score meets the fail-below threshold', async () => {
+    const h = harness({ inputs: { 'fail-below': '1', comment: 'false' } });
+    const r = await run(h.env, h.io, h.fetchImpl);
+    expect(r.score).toBeGreaterThanOrEqual(1);
+    expect(r.failed).toBe(false);
   });
 
   it('does nothing outside pull_request events', async () => {

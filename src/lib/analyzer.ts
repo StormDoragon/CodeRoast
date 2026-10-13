@@ -241,7 +241,7 @@ const LINE_RULES: LineRule[] = [
             : /\bconsole\.(log|debug|dir)\s*\(|\bSystem\.out\.print|\bConsole\.Write(Line)?\s*\(|\b(var_dump|print_r|dd)\s*\(|\bfmt\.Print(ln|f)?\s*\(|\bprintln!\s*\(|\bdbg!\s*\(/.test(l.code),
   },
   { id: 'debugger', severity: 'medium', langs: JS_LIKE, test: (l) => /^\s*debugger\s*;?\s*$/.test(l.code) },
-  { id: 'todo', severity: 'low', useRaw: true, test: (l) => /\b(TODO|FIXME|HACK|XXX)\b/.test(l.raw) },
+  { id: 'todo', severity: 'low', useRaw: true, test: (l) => /\b(TODO|FIXME|HACK|XXX)\b/.test(stripStrings(l.raw)) },
   { id: 'varKeyword', severity: 'medium', langs: JS_LIKE, test: (l) => /(^|[;{(\s])var\s+\w/.test(l.code) },
   { id: 'looseEquality', severity: 'medium', langs: [...JS_LIKE, 'php'], test: (l) => /[^=!<>]==[^=]|!=[^=]/.test(l.code) },
   {
@@ -255,7 +255,7 @@ const LINE_RULES: LineRule[] = [
     severity: 'medium',
     useRaw: true,
     test: (l, lang) =>
-      /@ts-ignore|@ts-nocheck|eslint-disable|#\s*type:\s*ignore|#\s*noqa|@SuppressWarnings|#\[allow\(|#pragma warning disable|rubocop:disable/.test(l.raw) ||
+      /@ts-ignore|@ts-nocheck|eslint-disable|#\s*type:\s*ignore|#\s*noqa|@SuppressWarnings|#\[allow\(|#pragma warning disable|rubocop:disable/.test(stripStrings(l.raw)) ||
       (lang === 'php' && /(^|[=(\s])@\$?\w+/.test(l.code)),
   },
   { id: 'longLines', severity: 'low', useRaw: true, test: (l) => l.raw.length > 120 },
@@ -309,9 +309,16 @@ const LINE_RULES: LineRule[] = [
     id: 'rawInput',
     severity: 'high',
     langs: ['php'],
-    // Request data dropped straight into output or a query: XSS / SQL injection.
-    test: (l) =>
-      /\$_(GET|POST|REQUEST|COOKIE)\[/.test(l.code) && /\b(echo|print|mysql_query|mysqli_query|query|exec|system)\b/.test(l.code),
+    // A same-line heuristic: report request values that reach a risky output,
+    // SQL, or shell sink without a common context-specific escaping wrapper.
+    test: (l) => {
+      const safeInput = /\b(?:htmlspecialchars|htmlentities|esc_html|mysqli_real_escape_string|mysql_real_escape_string|escapeshellarg|escapeshellcmd)\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)\[[^\]]+\]\s*(?:,\s*[^)]*)?\)/g;
+      const code = l.code.replace(safeInput, '');
+      return (
+        /\$_(GET|POST|REQUEST|COOKIE)\[/.test(code) &&
+        /\b(echo|print|mysql_query|mysqli_query|query|exec|system)\b/.test(code)
+      );
+    },
   },
 ];
 

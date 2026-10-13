@@ -143,9 +143,9 @@ function App() {
     setError(null);
     setRepoProgress({ done: 0, total: 0 });
     try {
-      const { files, branch } = await fetchRepo(ref, (done, total) => setRepoProgress({ done, total }));
+      const { files, branch, eligibleFiles } = await fetchRepo(ref, (done, total) => setRepoProgress({ done, total }));
       const name = `${ref.owner}/${ref.repo}${ref.path ? `/${ref.path}` : ''}`;
-      const repo = analyzeRepo(name, branch, files);
+      const repo = analyzeRepo(name, branch, files, eligibleFiles);
       const r = repoRoast(repo, intensity, seed);
       setResult({ kind: 'repo', analysis: repo.aggregate, repo, roast: r });
       track('repo_roast', { files: repo.files.length, score: scoreBucket(repo.score) });
@@ -232,7 +232,7 @@ function App() {
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-zinc-400">
               Paste code or a GitHub link. Get a brutally funny roast with line-numbered receipts, real fixes, and a
-              Banana Score to brag about. Runs 100% in your browser. Your code never leaves your device.
+              Banana Score to brag about. Pasted code is analyzed in your browser; public GitHub files/repos and the PR Action use the data paths described below.
             </p>
           </section>
         )}
@@ -284,6 +284,9 @@ function App() {
                   {repoButtonLabel}
                 </button>
               </form>
+              <p className="text-xs leading-relaxed text-zinc-500">
+                <span className="font-semibold text-zinc-400">Privacy:</span> pasted code is analyzed in this browser. Public GitHub file and repo modes fetch source from GitHub; the PR Action reads changed files on your GitHub Actions runner. This browser saves up to 25 roast records locally, including the result and up to 400 characters of source per pasted snippet. Clear them in history below. Share links encode roast output and metadata, not editor contents. AI-generated roast text can quote snippets or identifiers, so review before sharing.
+              </p>
               <RoastControls
                 lang={lang}
                 onLang={setLang}

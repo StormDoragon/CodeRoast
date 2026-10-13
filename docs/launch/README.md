@@ -39,7 +39,7 @@ Hacker News and Reddit penalize vote-asking, so never ask for upvotes. Ask peopl
 
 **Title** (≤80 chars, no hype words):
 ```
-Show HN: CodeRoast – a code roaster that runs entirely in your browser
+Show HN: CodeRoast – a code roaster with local analysis
 ```
 
 **URL:** https://code-roast-five.vercel.app
@@ -51,13 +51,18 @@ line-numbered receipts, an actual fix for each issue, and a "Banana Score" out o
 
 A few design choices that might interest this crowd:
 
-- Nothing is uploaded. The default engine is a small deterministic static analyzer (about 24
-  rules across 10 languages; strings and comments are stripped before matching)
-  feeding seeded joke templates, so it's instant on any phone and roasts are reproducible.
+- Pasted code is analyzed in the browser and isn't uploaded to CodeRoast. Public GitHub file/repo
+  mode fetches public source from GitHub; the PR Action reads files on the user's own runner.
+- The default engine is a small deterministic static analyzer (28 rules across 10 language
+  families) feeding seeded joke templates. Results are reproducible; its heuristics still need
+  feedback on real code.
 - There's an optional AI mode that runs a 0.5–3B code model locally via WebGPU (WebLLM). The
   prompt is grounded in the analyzer's findings so the model riffs on real issues instead
   of hallucinating them.
-- Share links put the roast (never the code) in the URL hash, so there's still no backend.
+- The browser stores up to 25 recent roast records locally, including results and up to 400
+  characters of pasted source; users can clear this history. Share links encode roast output
+  and metadata, not editor contents. AI-generated roast text can quote snippets or identifiers,
+  so users should review it before sharing.
 
 Fun fact: left-pad, the 11 lines that broke npm in 2016, scores 9/10. Its only sin is `var`.
 
@@ -78,9 +83,12 @@ points at real line numbers and comes with a real fix. You get a Banana Score ou
 about (or hide).
 
 ⚡ Instant: works on any device, no signup, no download
-🔒 Private: runs 100% in your browser, so your code never leaves your device
+🔒 Pasted code is analyzed in your browser. Public GitHub files/repos are fetched from GitHub; the PR Action reads changed files on your own runner.
 🧠 Optional local AI roasts via WebGPU
-🔗 Share a roast card, challenge friends, or put your score badge in your README
+🔗 Share a roast card or challenge friends; links encode roast output and metadata, not editor contents. AI text can quote snippets, so review before sharing.
+
+The browser stores up to 25 recent roast records locally (including the result and up to 400
+characters of each pasted snippet) until cleared.
 ```
 - **Maker comment:**
 ```
@@ -107,7 +115,9 @@ https://code-roast-five.vercel.app
 
 Savage jokes, but with line-numbered receipts, real fixes, and a Banana Score /10.
 
-Runs 100% in your browser. Your code never leaves your device.
+Pasted snippets are analyzed in your browser. Public GitHub repo/file roasts fetch public source
+from GitHub, and the PR Action reads files on the runner. Share links encode roast output and
+metadata, not editor contents; AI-generated roast text can quote snippets, so review before sharing.
 https://code-roast-five.vercel.app
 
 2/ My intern's first PR scored 1/10: "War Crime" ☠️
@@ -131,8 +141,10 @@ Code review, but make it a comedy roast. 🔥
 I built CodeRoast: paste any code and get a brutally funny breakdown. Every joke cites the exact
 lines and comes with a real fix, plus a "Banana Score" out of 10.
 
-What I'm proudest of: it runs entirely in your browser. No signup, no server, and your code never
-leaves your device, so you can safely try it on work code.
+Pasted snippets are analyzed in your browser and aren't uploaded to CodeRoast. Public GitHub
+files/repos are fetched from GitHub, and the PR Action reads files on the runner. Roast history
+stays in local browser storage until cleared. Share links encode roast output and metadata, not
+editor contents; AI-generated roast text can quote snippets, so review before sharing.
 
 The left-pad function that broke half the internet in 2016 scores 9/10. What does yours score?
 
@@ -144,8 +156,9 @@ The left-pad function that broke half the internet in 2016 scores 9/10. What doe
 
 **r/webdev (Showoff Saturday thread only):**
 ```
-I built CodeRoast: a code roaster that runs entirely client-side (static analyzer + optional
-WebGPU LLM). Jokes come with line numbers and fixes. Feedback on false positives very welcome!
+I built CodeRoast: pasted code is analyzed client-side (static analyzer + optional WebGPU LLM).
+Public GitHub files/repos are fetched from GitHub; the PR Action reads on your own runner. Jokes
+come with line numbers and fixes. Feedback on false positives is very welcome!
 https://code-roast-five.vercel.app
 ```
 
@@ -156,10 +169,11 @@ https://code-roast-five.vercel.app
 
 ```
 Hey {name}! Loved your {specific video/post}. I built a free tool that roasts code: jokes with
-line numbers, actual fixes, and a score out of 10. It runs entirely in the browser, so it's safe
-to use on stream with viewers' code.
+line numbers, actual fixes, and a score out of 10. Pasted snippets are analyzed in the browser and
+aren't uploaded to CodeRoast.
 
-Thought it might make a fun "roast my viewers' code" segment. No strings attached, just here if
+Thought it might make a fun "roast my viewers' code" segment. Pasted snippets are analyzed in the
+browser; GitHub file/repo mode fetches public source from GitHub. No strings attached, just here if
 you want it: https://code-roast-five.vercel.app
 ```
 

@@ -1,7 +1,7 @@
 {
   "name": "CodeRoast: get your code roasted",
   "short_name": "CodeRoast",
-  "description": "Paste code, get a brutally funny roast with line-numbered receipts, real fixes, and a Banana Score. Runs entirely in your browser.",
+  "description": "Analyze pasted code locally or roast a public GitHub file or repo. The PR Action reads changed files on your GitHub Actions runner.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
