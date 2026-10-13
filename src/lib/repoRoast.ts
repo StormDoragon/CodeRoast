@@ -25,6 +25,8 @@ export interface RepoAnalysis {
   name: string; // owner/repo
   ref: string;
   files: FileResult[]; // worst first
+  sampledFiles: number; // files actually fetched and analyzed
+  eligibleFiles: number; // source files available to the sampler after exclusions
   totalLines: number;
   score: number;
   langs: Lang[];
@@ -45,7 +47,15 @@ export function parseRepoUrl(input: string): RepoRef | null {
     return null;
   }
   if (url.hostname !== 'github.com') return null;
-  const parts = url.pathname.split('/').filter(Boolean);
+  // Split before decoding so an encoded slash stays inside the branch segment.
+  // For example, /tree/feature%2Fcache/src parses as ref="feature/cache",
+  // path="src". Unencoded slashes are path separators in GitHub URLs.
+  let parts: string[];
+  try {
+    parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  } catch {
+    return null;
+  }
   if (parts.length < 2) return null;
   const [owner, rawRepo, kind, ref, ...rest] = parts;
   const repo = rawRepo.replace(/\.git$/, '');
@@ -66,7 +76,7 @@ export function isRoastable(path: string): boolean {
   return langFromPath(path) !== null && !IGNORED_DIR.test(path) && !IGNORED_FILE.test(path);
 }
 
-export function pickFiles(tree: TreeEntry[], path?: string, max = MAX_FILES): TreeEntry[] {
+function eligibleFiles(tree: TreeEntry[], path?: string): TreeEntry[] {
   const prefix = path ? `${path.replace(/\/$/, '')}/` : '';
   return tree
     .filter(
@@ -77,8 +87,15 @@ export function pickFiles(tree: TreeEntry[], path?: string, max = MAX_FILES): Tr
         (e.size ?? 0) > 0 &&
         (e.size ?? 0) <= MAX_FILE_BYTES,
     )
-    .sort((a, b) => (b.size ?? 0) - (a.size ?? 0))
-    .slice(0, max);
+    .sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+}
+
+export function countEligibleFiles(tree: TreeEntry[], path?: string): number {
+  return eligibleFiles(tree, path).length;
+}
+
+export function pickFiles(tree: TreeEntry[], path?: string, max = MAX_FILES): TreeEntry[] {
+  return eligibleFiles(tree, path).slice(0, max);
 }
 
 async function gh<T>(url: string): Promise<T> {
@@ -91,14 +108,44 @@ async function gh<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function resolveTreeRef(base: string, ref: RepoRef): Promise<RepoRef> {
+  if (!ref.ref) return ref;
+  const route = `${ref.ref}${ref.path ? `/${ref.path}` : ''}`;
+  const segments = route.split('/');
+  // GitHub's /tree/<ref>/<path> route is ambiguous when a branch contains
+  // slashes. Try the longest exact branch prefix first, then treat the rest as
+  // the source folder. This matches GitHub's branch-first URL resolution.
+  for (let length = segments.length; length > 0; length--) {
+    const branch = segments.slice(0, length).join('/');
+    try {
+      const match = await gh<{ ref: string }>(`${base}/git/ref/heads/${branch}`);
+      if (match.ref !== `refs/heads/${branch}`) continue;
+      const path = segments.slice(length).join('/');
+      return { ...ref, ref: branch, path: path || undefined };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (/404|not found/i.test(message)) continue;
+      throw err;
+    }
+  }
+  return ref;
+}
+
 export async function fetchRepo(
   ref: RepoRef,
   onProgress?: (done: number, total: number) => void,
-): Promise<{ files: RepoFile[]; branch: string }> {
+): Promise<{ files: RepoFile[]; branch: string; eligibleFiles: number }> {
   const base = `https://api.github.com/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}`;
-  const branch = ref.ref ?? (await gh<{ default_branch: string }>(base)).default_branch;
-  const tree = await gh<{ tree: TreeEntry[] }>(`${base}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
-  const picked = pickFiles(tree.tree, ref.path);
+  const resolved = ref.ref ? await resolveTreeRef(base, ref) : ref;
+  const branch = resolved.ref ?? (await gh<{ default_branch: string }>(base)).default_branch;
+  const tree = await gh<{ tree: TreeEntry[]; truncated?: boolean }>(`${base}/git/trees/${branch}?recursive=1`);
+  if (tree.truncated) {
+    throw new Error(
+      'GitHub returned an incomplete file tree, so CodeRoast stopped instead of scoring a partial repository. Try a smaller repository or roast a file directly.',
+    );
+  }
+  const eligibleCount = countEligibleFiles(tree.tree, resolved.path);
+  const picked = pickFiles(tree.tree, resolved.path);
   if (picked.length === 0) throw new Error('No supported source files found (JS/TS/Python/Go/Rust/Java/C#/PHP/Ruby/C/C++).');
 
   const files: RepoFile[] = [];
@@ -123,12 +170,12 @@ export async function fetchRepo(
   };
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, picked.length) }, worker));
   if (files.length === 0) throw new Error('Could not download any files from that repo.');
-  return { files, branch };
+  return { files, branch, eligibleFiles: eligibleCount };
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2 };
 
-export function analyzeRepo(name: string, branch: string, files: RepoFile[]): RepoAnalysis {
+export function analyzeRepo(name: string, branch: string, files: RepoFile[], eligibleCount = files.length): RepoAnalysis {
   const results: FileResult[] = files.map((f) => ({
     path: f.path,
     analysis: analyze(f.code, langFromPath(f.path) ?? undefined),
@@ -169,6 +216,8 @@ export function analyzeRepo(name: string, branch: string, files: RepoFile[]): Re
     name,
     ref: branch,
     files: sorted,
+    sampledFiles: files.length,
+    eligibleFiles: eligibleCount,
     totalLines,
     score,
     langs,

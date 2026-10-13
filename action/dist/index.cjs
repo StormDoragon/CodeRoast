@@ -130,7 +130,7 @@ var LINE_RULES = [
     test: (l, lang) => lang === "python" ? /^\s*print\s*\(/.test(l.code) : lang === "ruby" ? /^\s*(puts|p|pp|print)\s/.test(l.code) : lang === "c" ? false : /\bconsole\.(log|debug|dir)\s*\(|\bSystem\.out\.print|\bConsole\.Write(Line)?\s*\(|\b(var_dump|print_r|dd)\s*\(|\bfmt\.Print(ln|f)?\s*\(|\bprintln!\s*\(|\bdbg!\s*\(/.test(l.code)
   },
   { id: "debugger", severity: "medium", langs: JS_LIKE, test: (l) => /^\s*debugger\s*;?\s*$/.test(l.code) },
-  { id: "todo", severity: "low", useRaw: true, test: (l) => /\b(TODO|FIXME|HACK|XXX)\b/.test(l.raw) },
+  { id: "todo", severity: "low", useRaw: true, test: (l) => /\b(TODO|FIXME|HACK|XXX)\b/.test(stripStrings(l.raw)) },
   { id: "varKeyword", severity: "medium", langs: JS_LIKE, test: (l) => /(^|[;{(\s])var\s+\w/.test(l.code) },
   { id: "looseEquality", severity: "medium", langs: [...JS_LIKE, "php"], test: (l) => /[^=!<>]==[^=]|!=[^=]/.test(l.code) },
   {
@@ -143,7 +143,7 @@ var LINE_RULES = [
     id: "suppression",
     severity: "medium",
     useRaw: true,
-    test: (l, lang) => /@ts-ignore|@ts-nocheck|eslint-disable|#\s*type:\s*ignore|#\s*noqa|@SuppressWarnings|#\[allow\(|#pragma warning disable|rubocop:disable/.test(l.raw) || lang === "php" && /(^|[=(\s])@\$?\w+/.test(l.code)
+    test: (l, lang) => /@ts-ignore|@ts-nocheck|eslint-disable|#\s*type:\s*ignore|#\s*noqa|@SuppressWarnings|#\[allow\(|#pragma warning disable|rubocop:disable/.test(stripStrings(l.raw)) || lang === "php" && /(^|[=(\s])@\$?\w+/.test(l.code)
   },
   { id: "longLines", severity: "low", useRaw: true, test: (l) => l.raw.length > 120 },
   {
@@ -189,8 +189,13 @@ var LINE_RULES = [
     id: "rawInput",
     severity: "high",
     langs: ["php"],
-    // Request data dropped straight into output or a query: XSS / SQL injection.
-    test: (l) => /\$_(GET|POST|REQUEST|COOKIE)\[/.test(l.code) && /\b(echo|print|mysql_query|mysqli_query|query|exec|system)\b/.test(l.code)
+    // A same-line heuristic: report request values that reach a risky output,
+    // SQL, or shell sink without a common context-specific escaping wrapper.
+    test: (l) => {
+      const safeInput = /\b(?:htmlspecialchars|htmlentities|esc_html|mysqli_real_escape_string|mysql_real_escape_string|escapeshellarg|escapeshellcmd)\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)\[[^\]]+\]\s*(?:,\s*[^)]*)?\)/g;
+      const code = l.code.replace(safeInput, "");
+      return /\$_(GET|POST|REQUEST|COOKIE)\[/.test(code) && /\b(echo|print|mysql_query|mysqli_query|query|exec|system)\b/.test(code);
+    }
   }
 ];
 function analyze(code, langHint) {
@@ -581,7 +586,7 @@ function isRoastable(path) {
   return langFromPath(path) !== null && !IGNORED_DIR.test(path) && !IGNORED_FILE.test(path);
 }
 var SEVERITY_RANK = { low: 0, medium: 1, high: 2 };
-function analyzeRepo(name, branch, files) {
+function analyzeRepo(name, branch, files, eligibleCount = files.length) {
   const results = files.map((f) => ({
     path: f.path,
     analysis: analyze(f.code, langFromPath(f.path) ?? void 0)
@@ -614,6 +619,8 @@ function analyzeRepo(name, branch, files) {
     name,
     ref: branch,
     files: sorted,
+    sampledFiles: files.length,
+    eligibleFiles: eligibleCount,
     totalLines,
     score,
     langs,
@@ -748,6 +755,7 @@ function input(env, name, fallback = "") {
   return (env.get(`INPUT_${name.toUpperCase()}`) ?? "").trim() || fallback;
 }
 var MAX_COMMENT_PAGES = 30;
+var MAX_PR_FILE_PAGES = 30;
 async function findOwnComment(gh, repo, number) {
   for (let page = 1; page <= MAX_COMMENT_PAGES; page++) {
     const batch = await (await gh(`/repos/${repo}/issues/${number}/comments?per_page=100&page=${page}`)).json();
@@ -788,10 +796,13 @@ async function run(env, io, fetchImpl = fetch) {
     return res;
   };
   const prFiles = [];
-  for (let page = 1; page <= 3; page++) {
+  for (let page = 1; page <= MAX_PR_FILE_PAGES; page++) {
     const batch = await (await gh(`/repos/${baseRepo}/pulls/${number}/files?per_page=100&page=${page}`)).json();
     prFiles.push(...batch);
     if (batch.length < 100) break;
+  }
+  if (prFiles.length === MAX_PR_FILE_PAGES * 100) {
+    io.log("GitHub returned its 3,000-file limit; changes beyond that limit were not included in this roast.");
   }
   const candidates = prFiles.filter((f) => f.status !== "removed" && isRoastable(f.filename)).sort((a, b) => b.changes - a.changes).slice(0, maxFiles);
   if (candidates.length === 0) {

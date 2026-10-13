@@ -91,7 +91,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
           </button>
         )}
       </div>
-      <p className="text-xs text-zinc-500">Share links contain only the roast and score, never your code.</p>
+      <p className="text-xs text-zinc-500">Links include roast text and metadata, not editor contents. AI text can quote snippets; review before sharing.</p>
       {toast && (
         <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 shadow-lg">
           {toast}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { analyzeRepo, fetchRepo, parseRepoUrl, pickFiles, repoRoast } from '../repoRoast';
+import { analyzeRepo, countEligibleFiles, fetchRepo, parseRepoUrl, pickFiles, repoRoast } from '../repoRoast';
 import { EXAMPLES } from '../examples';
 
 describe('parseRepoUrl', () => {
@@ -7,6 +7,7 @@ describe('parseRepoUrl', () => {
     expect(parseRepoUrl('https://github.com/a/b')).toEqual({ owner: 'a', repo: 'b' });
     expect(parseRepoUrl('https://github.com/a/b.git/')).toEqual({ owner: 'a', repo: 'b' });
     expect(parseRepoUrl('https://github.com/a/b/tree/dev/src/lib')).toEqual({ owner: 'a', repo: 'b', ref: 'dev', path: 'src/lib' });
+    expect(parseRepoUrl('https://github.com/a/b/tree/feature%2Fcache/src/lib')).toEqual({ owner: 'a', repo: 'b', ref: 'feature/cache', path: 'src/lib' });
     expect(parseRepoUrl('https://github.com/a/b/blob/main/x.ts')).toBeNull();
     expect(parseRepoUrl('https://gitlab.com/a/b')).toBeNull();
     expect(parseRepoUrl('not a url')).toBeNull();
@@ -26,6 +27,7 @@ describe('pickFiles', () => {
       { path: 'huge.js', type: 'blob', size: 10_000_000 },
     ];
     expect(pickFiles(tree).map((e) => e.path)).toEqual(['src/big.ts', 'src/small.py']);
+    expect(countEligibleFiles(tree)).toBe(2);
     expect(pickFiles(tree, 'src', 1).map((e) => e.path)).toEqual(['src/big.ts']);
   });
 });
@@ -82,5 +84,52 @@ describe('fetchRepo', () => {
     await expect(fetchRepo({ owner: 'a', repo: 'b' })).rejects.toThrow(/rate limit/);
     vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
     await expect(fetchRepo({ owner: 'a', repo: 'b' })).rejects.toThrow(/not found/);
+  });
+
+  it('refuses a truncated recursive tree instead of scoring a partial repository', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push(url);
+      if (url.endsWith('/git/ref/heads/main')) return Response.json({ ref: 'refs/heads/main' });
+      return Response.json({ tree: [{ path: 'src/partial.ts', type: 'blob', size: 100 }], truncated: true });
+    });
+    await expect(fetchRepo({ owner: 'a', repo: 'b', ref: 'main' })).rejects.toThrow(/incomplete file tree/);
+    expect(calls).toHaveLength(2);
+  });
+
+  it('reports the number actually read separately from all eligible files', async () => {
+    const tree = Array.from({ length: 35 }, (_, i) => ({ path: `src/file-${i}.ts`, type: 'blob', size: 100 }));
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.endsWith('/git/ref/heads/main')) return Response.json({ ref: 'refs/heads/main' });
+      if (url.startsWith('https://api.github.com/')) return Response.json({ tree, truncated: false });
+      if (url.endsWith('/src/file-0.ts')) return new Response('unavailable', { status: 503 });
+      return new Response('export function ready() { return true; }\n');
+    });
+    const progress: Array<[number, number]> = [];
+    const result = await fetchRepo({ owner: 'a', repo: 'b', ref: 'main' }, (done, total) => progress.push([done, total]));
+    expect(result.eligibleFiles).toBe(35);
+    expect(result.files).toHaveLength(29);
+    expect(progress[0]).toEqual([0, 30]);
+    expect(progress.at(-1)).toEqual([30, 30]);
+  });
+
+  it('resolves an unencoded slash branch to the longest matching GitHub ref', async () => {
+    const ref = parseRepoUrl('https://github.com/a/b/tree/feature/cache/src');
+    expect(ref).toEqual({ owner: 'a', repo: 'b', ref: 'feature', path: 'cache/src' });
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push(url);
+      if (url.endsWith('/git/ref/heads/feature/cache/src')) return new Response('not found', { status: 404 });
+      if (url.endsWith('/git/ref/heads/feature/cache')) return Response.json({ ref: 'refs/heads/feature/cache' });
+      if (url.includes('/git/trees/feature/cache?recursive=1')) {
+        return Response.json({ tree: [{ path: 'src/main.ts', type: 'blob', size: 100 }] });
+      }
+      if (url.endsWith('/feature/cache/src/main.ts')) return new Response('export function ready() { return true; }');
+      return new Response('not found', { status: 404 });
+    });
+    const result = await fetchRepo(ref!);
+    expect(result.branch).toBe('feature/cache');
+    expect(result.files.map((file) => file.path)).toEqual(['src/main.ts']);
+    expect(calls.some((url) => url.includes('/git/trees/feature/cache?recursive=1'))).toBe(true);
   });
 });

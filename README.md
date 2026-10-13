@@ -2,7 +2,7 @@
 
 **Your code, roasted.** Paste code or a GitHub link and get a brutally funny roast with **line-numbered receipts**, **real fixes**, and a **Banana Score** to brag about.
 
-Runs 100% in your browser. No signup, no server, and your code never leaves your device.
+The instant and optional WebGPU AI engines run in your browser. Pasted code is analyzed locally and is not uploaded to CodeRoast. Public GitHub file and repo modes fetch public source from GitHub, and the PR Action reads changed files through GitHub on your Actions runner. This browser stores up to 25 recent roast records locally, including the result and up to 400 characters of each pasted snippet; use **Clear history** to remove them. Share links encode roast output and metadata, not the editor contents. AI-generated roast text can quote snippets or identifiers, so review it before sharing.
 
 ![CodeRoast](public/og.png)
 
@@ -12,8 +12,8 @@ Runs 100% in your browser. No signup, no server, and your code never leaves your
 - 🧠 **AI roasts (optional).** Runs a small code LLM locally via WebGPU ([WebLLM](https://github.com/mlc-ai/web-llm)), grounded in the analyzer's findings.
 - 🧾 **Receipts + fixes.** Every joke points at real lines and tells you how to fix them.
 - ⚔️ **Roast battles:** two snippets enter, one winner leaves, with a shareable battle card.
-- 📦 **Roast a whole repo:** paste `github.com/owner/repo` and get a repo score plus a "crime scene" of the worst files.
-- 🔗 **Share links** that carry only the roast (never your code). Each one gets its own preview image on X, Slack, Discord, and other sites, and opens a challenge page.
+- 📦 **Roast a whole repo:** paste `github.com/owner/repo` and get a repo score plus a "crime scene" of the worst files. The result shows how many eligible source files were read; repositories with incomplete GitHub trees are rejected instead of scored from partial data. Slash-containing branches are resolved against GitHub refs; `%2F` encoding is also supported when you need to disambiguate a branch from a folder path.
+- 🔗 **Share links** that encode roast output and metadata, not editor contents. AI-generated roast text can quote snippets or identifiers, so review before sharing. Each link gets its own preview image on X, Slack, Discord, and other sites, and opens a challenge page.
 - 🖼️ **Meme card PNG**, X/LinkedIn sharing, native share sheet.
 - 🍌 **README badge.** Show off your score: [![Banana Score: 9/10](https://img.shields.io/badge/Banana_Score-9%2F10-brightgreen?labelColor=1f2937)](https://github.com/StormDoragon/CodeRoast)
 - 😌 / 🔥 / 💢 **Gentle, Savage, Unhinged** intensity.
@@ -90,7 +90,7 @@ code ──► analyzer.ts (rules, metrics, score) ──► roastLite.ts (jokes
 - `src/lib/share.ts`: share payloads are base64url JSON, validated on read. Links look like `/r/<payload>`.
 - `api/share.ts` (edge) + `api/og.ts` (Node.js; the edge runtime can't compile `@vercel/og`'s WebAssembly outside Next.js): `/r/<payload>` returns preview tags for crawlers and redirects visitors to `/#r=<payload>`. `/api/og?d=<payload>` renders the per-roast preview image. Both are stateless, so there's still no database. Relative imports in `api/` need explicit `.js` extensions, because Vercel runs them as native ESM.
 - `action/`: the GitHub Action. `npm run build:action` bundles it to `action/dist/index.cjs`, which is committed (CI checks it is up to date).
-- `src/lib/repoRoast.ts`: repo roasts. Two GitHub API calls (default branch and file tree), then up to 30 files fetched from raw.githubusercontent.com.
+- `src/lib/repoRoast.ts`: repo roasts. GitHub provides the file tree, then the browser fetches up to 30 largest eligible source files from `raw.githubusercontent.com`. A truncated recursive tree is rejected. The result reports the actual read count against the eligible-file count.
 
 ## Roadmap
 

@@ -37,6 +37,7 @@ interface PrFile {
 }
 
 const MAX_COMMENT_PAGES = 30;
+const MAX_PR_FILE_PAGES = 30; // GitHub's changed-files endpoint caps a PR at 3,000 files.
 
 // Busy PRs can have more than one page of comments; keep looking until the
 // marker turns up so we update our comment instead of posting duplicates.
@@ -87,12 +88,15 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
     return res;
   };
 
-  // 1. Changed files (up to 300, GitHub's limit for this endpoint is 3000).
+  // 1. Changed files (up to GitHub's 3,000-file endpoint limit).
   const prFiles: PrFile[] = [];
-  for (let page = 1; page <= 3; page++) {
+  for (let page = 1; page <= MAX_PR_FILE_PAGES; page++) {
     const batch: PrFile[] = await (await gh(`/repos/${baseRepo}/pulls/${number}/files?per_page=100&page=${page}`)).json();
     prFiles.push(...batch);
     if (batch.length < 100) break;
+  }
+  if (prFiles.length === MAX_PR_FILE_PAGES * 100) {
+    io.log('GitHub returned its 3,000-file limit; changes beyond that limit were not included in this roast.');
   }
   const candidates = prFiles
     .filter((f) => f.status !== 'removed' && isRoastable(f.filename))
