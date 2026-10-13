@@ -100,7 +100,7 @@ export async function run(env: Env, io: Io, fetchImpl: typeof fetch = fetch): Pr
     .slice(0, maxFiles);
 
   if (candidates.length === 0) {
-    io.log('No supported source files changed (JS/TS/Python/Go/Rust/Java; built, vendored and minified files are skipped).');
+    io.log('No supported source files changed (JS/TS/Python/Go/Rust/Java/C#/PHP/Ruby/C/C++; built, vendored and minified files are skipped).');
     return { score: null, failed: false, message: 'No supported source files changed.' };
   }
 

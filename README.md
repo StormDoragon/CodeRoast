@@ -8,15 +8,17 @@ Runs 100% in your browser. No signup, no server, and your code never leaves your
 
 ## Features
 
-- ⚡ **Instant roasts on any device.** A built-in static analyzer (24 rules) plus a joke engine. No download, no GPU, results in milliseconds.
+- ⚡ **Instant roasts on any device.** A built-in static analyzer (28 rules) plus a joke engine. No download, no GPU, results in milliseconds.
 - 🧠 **AI roasts (optional).** Runs a small code LLM locally via WebGPU ([WebLLM](https://github.com/mlc-ai/web-llm)), grounded in the analyzer's findings.
 - 🧾 **Receipts + fixes.** Every joke points at real lines and tells you how to fix them.
+- ⚔️ **Roast battles:** two snippets enter, one winner leaves, with a shareable battle card.
 - 📦 **Roast a whole repo:** paste `github.com/owner/repo` and get a repo score plus a "crime scene" of the worst files.
 - 🔗 **Share links** that carry only the roast (never your code). Each one gets its own preview image on X, Slack, Discord, and other sites, and opens a challenge page.
 - 🖼️ **Meme card PNG**, X/LinkedIn sharing, native share sheet.
 - 🍌 **README badge.** Show off your score: [![Banana Score: 9/10](https://img.shields.io/badge/Banana_Score-9%2F10-brightgreen?labelColor=1f2937)](https://github.com/StormDoragon/CodeRoast)
 - 😌 / 🔥 / 💢 **Gentle, Savage, Unhinged** intensity.
-- Languages: JavaScript, TypeScript, Python, Go, Rust, Java/Kotlin (auto-detected).
+- Languages: JavaScript, TypeScript, Python, Go, Rust, Java/Kotlin, C#, PHP, Ruby, C/C++ (auto-detected).
+- 🙄 **Bad roast?** One click opens a prefilled GitHub issue (rule names and line numbers only, never your code).
 - Installable PWA, local roast history.
 
 ## CodeRoast for pull requests

@@ -1,10 +1,10 @@
 import React from 'react';
-import { drawCard, cardToBlob, type CardData } from '../lib/card';
+import { drawAnyCard, cardToBlob, type BattleCardData, type CardData } from '../lib/card';
 import { badgeMarkdown } from '../lib/share';
 import { track } from '../lib/analytics';
 
 interface SharePanelProps {
-  card: CardData;
+  card: CardData | BattleCardData;
   url: string;
   tweet: string;
 }
@@ -17,7 +17,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
   const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (canvasRef.current) drawCard(canvasRef.current, card);
+    if (canvasRef.current) drawAnyCard(canvasRef.current, card);
   }, [card]);
 
   React.useEffect(() => {
@@ -42,7 +42,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
     const blob = await cardToBlob(canvasRef.current);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `coderoast-${card.score}-of-10.png`;
+    a.download = card.kind === 'battle' ? 'coderoast-battle.png' : `coderoast-${card.score}-of-10.png`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
@@ -85,9 +85,11 @@ export const SharePanel: React.FC<SharePanelProps> = ({ card, url, tweet }) => {
         <button className={btn} onClick={download}>
           🖼️ Download card
         </button>
-        <button className={btn} onClick={() => copy(badgeMarkdown(card.score, card.site), 'README badge')}>
-          🍌 README badge
-        </button>
+        {card.kind !== 'battle' && (
+          <button className={btn} onClick={() => copy(badgeMarkdown(card.score, card.site), 'README badge')}>
+            🍌 README badge
+          </button>
+        )}
       </div>
       <p className="text-xs text-zinc-500">Share links contain only the roast and score, never your code.</p>
       {toast && (

@@ -52,7 +52,7 @@ line-numbered receipts, an actual fix for each issue, and a "Banana Score" out o
 A few design choices that might interest this crowd:
 
 - Nothing is uploaded. The default engine is a small deterministic static analyzer (about 24
-  rules across JS/TS/Python/Go/Rust/Java; strings and comments are stripped before matching)
+  rules across 10 languages; strings and comments are stripped before matching)
   feeding seeded joke templates, so it's instant on any phone and roasts are reproducible.
 - There's an optional AI mode that runs a 0.5–3B code model locally via WebGPU (WebLLM). The
   prompt is grounded in the analyzer's findings so the model riffs on real issues instead

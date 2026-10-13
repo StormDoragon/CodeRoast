@@ -1,6 +1,7 @@
 // Renders a 1200x630 roast card (the social-preview size) with plain canvas.
 
 export interface CardData {
+  kind?: 'roast';
   score: number;
   title: string;
   emoji: string;
@@ -104,6 +105,79 @@ export function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   ctx.fillStyle = '#71717a';
   ctx.font = font(24, 600);
   ctx.fillText(`Get roasted → ${d.site.replace(/^https?:\/\//, '')}`, x, H - 64);
+}
+
+export interface BattleCardData {
+  kind: 'battle';
+  a: { m: string; s: number; t: string; r: string[] };
+  b: { m: string; s: number; t: string; r: string[] };
+  headline: string;
+  winner: 'a' | 'b' | 't';
+  site: string;
+}
+
+export function drawBattleCard(canvas: HTMLCanvasElement, d: BattleCardData) {
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  const font = (size: number, weight = 400) =>
+    `${weight} ${size}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#0b0b0f');
+  bg.addColorStop(1, '#2a0a0a');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f87171';
+  ctx.font = font(32, 800);
+  ctx.fillText('⚔️ CodeRoast Battle', 56, 84);
+
+  const winner = d.winner;
+  const colW = (W - 56 * 2 - 80) / 2;
+  const sides: Array<[BattleCardData['a'], number, boolean]> = [
+    [d.a, 56, winner === 'a'],
+    [d.b, 56 + colW + 80, winner === 'b'],
+  ];
+  for (const [f, x, won] of sides) {
+    const color = scoreColor(f.s);
+    ctx.fillStyle = won ? 'rgba(250,204,21,0.08)' : 'rgba(255,255,255,0.04)';
+    ctx.fillRect(x, 120, colW, 400);
+    ctx.fillStyle = won ? '#facc15' : color;
+    ctx.fillRect(x, 120, colW, 8);
+    ctx.textAlign = 'center';
+    const cx = x + colW / 2;
+    ctx.fillStyle = '#fafafa';
+    ctx.font = font(30, 800);
+    ctx.fillText(`${won ? '🏆 ' : ''}${f.m}`, cx, 180, colW - 32);
+    ctx.fillStyle = color;
+    ctx.font = font(150, 800);
+    ctx.fillText(String(f.s), cx, 340);
+    ctx.fillStyle = '#71717a';
+    ctx.font = font(26, 600);
+    ctx.fillText(`/ 10 · ${f.t.toUpperCase()}`, cx, 385, colW - 32);
+    ctx.fillStyle = '#d4d4d8';
+    ctx.font = font(22, 500);
+    const lines = f.r[0] ? wrap(ctx, `“${f.r[0]}”`, colW - 48).slice(0, 3) : [];
+    lines.forEach((l, i) => ctx.fillText(l, cx, 430 + i * 30));
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#71717a';
+  ctx.font = font(44, 900);
+  ctx.fillText('VS', W / 2, 330);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#a1a1aa';
+  ctx.font = font(22, 600);
+  const head = wrap(ctx, d.headline, W - 112)[0] ?? '';
+  ctx.fillText(head, 56, 560);
+  ctx.fillStyle = '#71717a';
+  ctx.fillText(`Start your own battle → ${d.site.replace(/^https?:\/\//, '')}`, 56, 596);
+}
+
+export function drawAnyCard(canvas: HTMLCanvasElement, d: CardData | BattleCardData) {
+  if (d.kind === 'battle') drawBattleCard(canvas, d);
+  else drawCard(canvas, d);
 }
 
 export function cardToBlob(canvas: HTMLCanvasElement): Promise<Blob> {

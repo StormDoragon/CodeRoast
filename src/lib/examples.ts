@@ -143,4 +143,23 @@ func main() {
 }
 `,
   },
+  {
+    label: 'PHP from a 2009 tutorial',
+    lang: 'php',
+    code: `<?php
+// TODO: add security later
+$db_password = "admin123!";
+$conn = mysql_connect("localhost", "root", $db_password);
+
+$id = $_GET['id'];
+$result = mysql_query("SELECT * FROM users WHERE id = " . $_GET['id']);
+$data = @mysql_fetch_array($result);
+
+if ($data['is_admin'] == true) {
+    echo "Welcome back, " . $_GET['name'];
+}
+var_dump($data);
+`,
+  },
 ];
+

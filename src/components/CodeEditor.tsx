@@ -10,6 +10,8 @@ interface CodeEditorProps {
   value: string;
   onChange: (val: string) => void;
   language: Lang;
+  className?: string;
+  label?: string;
 }
 
 function langExtension(language: Lang) {
@@ -19,7 +21,13 @@ function langExtension(language: Lang) {
   return [];
 }
 
-export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language }) => {
+export const CodeEditor: React.FC<CodeEditorProps> = ({
+  value,
+  onChange,
+  language,
+  className = 'h-80 md:h-[26rem]',
+  label = 'Code editor',
+}) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -59,8 +67,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, languag
   return (
     <div
       ref={hostRef}
-      aria-label="Code editor"
-      className="h-80 md:h-[26rem] w-full overflow-hidden rounded-xl border border-zinc-800 text-sm"
+      aria-label={label}
+      className={`${className} w-full overflow-hidden rounded-xl border border-zinc-800 text-sm`}
     />
   );
 };
